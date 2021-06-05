@@ -1,0 +1,6 @@
+numpy
+pandas
+scikit-learn==0.22.1
+scikit-optimize==0.8.1
+pyaml
+torch
