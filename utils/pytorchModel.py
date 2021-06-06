@@ -4,6 +4,7 @@
 # @Author : LYX-夜光
 import time
 
+import joblib
 import numpy as np
 import torch
 from torch import nn
@@ -11,7 +12,9 @@ from torch import nn
 from sklearn.base import BaseEstimator
 from sklearn.metrics import accuracy_score
 
-from utils import set_seed
+from utils import set_seed, make_dir, yaml_config
+
+from utils.logUtil import logging_config
 
 # pytorch随机种子
 def pytorch_set_seed(seed):
@@ -27,8 +30,10 @@ def pytorch_set_seed(seed):
 class PytorchClassifier(nn.Module, BaseEstimator):
     def __init__(self, learning_rate=0.001, epochs=100, batch_size=50, random_state=0, device='cpu'):
         super().__init__()
-
+        self.model_name = "base_dl"
         self._estimator_type = "classifier"
+        self.param_search = True
+        self.logger = None
 
         self.learning_rate = learning_rate
         self.epochs = epochs
@@ -57,41 +62,92 @@ class PytorchClassifier(nn.Module, BaseEstimator):
         return y
 
     # 训练
-    def fit(self, X, y):
+    def fit(self, X, y, X_val=None, y_val=None):
         # 设置随机种子
         pytorch_set_seed(self.random_state)
         # 构建模型
         self.create_model(X.shape[1], len(set(y)))
-        # 定义优化器，损失函数
-        optimizer = torch.optim.Adam(params=self.parameters(), lr=self.learning_rate)
-        loss_fn = nn.CrossEntropyLoss()
-        # 训练
-        self.train()  # 训练模式
         self.to(self.device)
+        # 定义优化器，损失函数
+        self.optimizer = torch.optim.Adam(params=self.parameters(), lr=self.learning_rate)
+        self.loss_fn = nn.CrossEntropyLoss()
+        # 初始化训练集
         X, y = self.to_tensor(X), self.to_tensor(y)
-        indexList = list(range(0, X.shape[0], self.batch_size))
+        train_index = list(range(0, X.shape[0], self.batch_size))
+        # 若不进行超参数搜索，则初始化验证集
+        val_index = []
+        if not self.param_search and X_val is not None and y_val is not None:
+            X_val, y_val = self.to_tensor(X_val), self.to_tensor(y_val)
+            val_index = list(range(0, X_val.shape[0], self.batch_size))
+
         for epoch in range(self.epochs):
-            startTime = time.time()
-            total_loss = 0
-            for i in indexList:
-                X_batch, y_batch = X[i:i+self.batch_size], y[i:i+self.batch_size]
-                X_batch, y_batch = X_batch.to(self.device), y_batch.to(self.device)
-                y_pred_batch = self.forward(X_batch)
+            start_time = time.time()
 
-                loss = loss_fn(y_pred_batch, y_batch)
-                total_loss += loss.item()
+            train_loss, train_score = self.fit_step(X, y, train_index, train=True)
+            massage = "epoch: %d/%d - train_loss: %.6f - train_score: %.6f" % (
+                epoch+1, self.epochs, train_loss, train_score)
 
+            # 有输入验证集，则计算val_loss和val_score
+            val_score = 0
+            if val_index:
+                val_loss, val_score = self.fit_step(X_val, y_val, val_index, train=False)
+                massage += " - val_loss: %.6f - val_score: %.6f" % (val_loss, val_score)
+
+            run_time = time.time() - start_time
+            print(massage + " - time: %ds" % int(run_time))
+
+            # 不进行超参数搜索，则存储每个epoch的模型和日志
+            if not self.param_search:
+                # 存储模型
+                model_dir = yaml_config['dir']['model_dir']
+                make_dir(model_dir)
+                model_path = model_dir + '/%s-%03d-%s.model' % (self.model_name, epoch+1, int(time.time()))
+                device = self.device
+                self.device = 'cpu'
+                self.to(self.device)
+                joblib.dump(self, model_path)
+                self.device = device
+                self.to(self.device)
+                # 存储日志
+                log_dir = yaml_config['dir']['log_dir']
+                make_dir(log_dir)
+                if self.logger is None:
+                    self.logger = logging_config(self.model_name, log_dir + '/%s.log' % self.model_name)
+                self.logger.info({
+                    "epoch": epoch+1,
+                    "best_param_": self.get_params(),
+                    "best_score_": val_score,
+                    "train_score": train_score,
+                    "model_path": model_path,
+                })
+
+    # 拟合步骤
+    def fit_step(self, X, y, indexList, train):
+        if train:
+            self.train()  # 训练模式
+        else:
+            self.eval()  # 求值模式
+
+        total_loss, y_prob = 0, []
+        for i in indexList:
+            X_batch = X[i:i+self.batch_size].to(self.device)
+            y_batch = y[i:i+self.batch_size].to(self.device)
+            y_prob_batch = self.forward(X_batch)
+
+            loss = self.loss_fn(y_prob_batch, y_batch)
+            total_loss += loss.item()
+
+            y_prob.append(y_prob_batch.cpu().detach().numpy())
+
+            if train:
                 loss.backward()  # 梯度计算
-                optimizer.step()  # 优化更新权值
-                optimizer.zero_grad()  # 求解梯度前需要清空之前的梯度结果（因为model会累加梯度）
+                self.optimizer.step()  # 优化更新权值
+                self.optimizer.zero_grad()  # 求解梯度前需要清空之前的梯度结果（因为model会累加梯度）
 
-            runTime = time.time() - startTime
-            print("epoch: %d/%d - loss: %.6f - time: %ds" % (epoch+1, self.epochs, total_loss/len(indexList), int(runTime)))
+        mean_loss = total_loss/len(indexList)
+        score = self.score(X, y, np.vstack(y_prob))
 
-    # 预测分类标签
-    def predict(self, X):
-        y_prob = self.predict_proba(X)
-        return y_prob.argmax(1)
+        return mean_loss, score
 
     # 预测分类概率
     def predict_proba(self, X):
@@ -99,15 +155,21 @@ class PytorchClassifier(nn.Module, BaseEstimator):
         self.to(self.device)
         X = self.to_tensor(X).to(self.device)
         batch_size = 20000
-        y_pred = []
+        y_prob = []
         for i in range(0, X.shape[0], batch_size):
             X_batch = X[i:i + batch_size]
-            y_pred_batch = self.forward(X_batch).cpu().detach().numpy()
-            y_pred.append(y_pred_batch)
-        y_pred = np.vstack(y_pred)
-        return y_pred
+            y_prob_batch = self.forward(X_batch).cpu().detach().numpy()
+            y_prob.append(y_prob_batch)
+        y_prob = np.vstack(y_prob)
+        return y_prob
+
+    # 预测分类标签
+    def predict(self, X, y_prob=None):
+        if y_prob is None:
+            y_prob = self.predict_proba(X)
+        return y_prob.argmax(1)
 
     # 评价指标，精确度：accuracy
-    def score(self, X, y):
-        y_pred = self.predict(X)
+    def score(self, X, y, y_prob=None):
+        y_pred = self.predict(X, y_prob)
         return accuracy_score(y_pred, y)
