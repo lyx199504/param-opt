@@ -1,0 +1,1 @@
+2021-06-05 23:59:15:INFO:{'cus_param': {'seed': 1}, 'bys_param': {'n_iter': 10, 'fold': 3, 'workers': 3}, 'best_param_': {'max_depth': 11, 'n_estimators': 234, 'random_state': 16}, 'best_score_': 0.9533333333333334, 'train_score': 1.0, 'model_path': './model/rf_clf-1622908755.model'}

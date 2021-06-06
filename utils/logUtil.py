@@ -5,11 +5,9 @@
 import logging
 import re
 
-
-# 日志配置
 from utils import yaml_config
 
-
+# 日志配置
 def logging_config(logName, fileName):
     logger = logging.getLogger(logName)
     logger.setLevel('DEBUG')

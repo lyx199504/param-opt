@@ -1,8 +1,4 @@
 # python
 *.py[cod]
-
 venv
-
 .idea
-
-*.log
