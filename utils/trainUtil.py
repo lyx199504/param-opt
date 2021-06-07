@@ -65,30 +65,3 @@ def bayes_search_train(X, y, model_name, model_param, model=None, X_test=None, y
         log_message.update({"test_score": bys.score(X_test, y_test)})
     logger.info(log_message)
 
-
-# 模型训练
-def model_train(X, y, model_name, model=None, X_test=None, y_test=None):
-    """
-    :param X: 训练集的特征
-    :param y: 训练集的标签
-    :param model_name: 模型名称
-    :param model: 模型，可缺省
-    :param X_test: 测试集的特征，可缺省
-    :param y_test: 测试集的标签，可缺省
-    :return: 无，输出模型文件
-    """
-
-    model_dir = yaml_config['dir']['model_dir']
-
-    if not model:
-        model = model_selection(model_name)
-
-    model.fit(X, y)
-
-    make_dir(model_dir)
-    model_path = model_dir + '/%s_%s.model' % (model_name, int(time.time()))
-    joblib.dump(model, model_path)
-
-    print("训练集分数：", model.score(X, y))
-    if X_test and y_test:
-        print("测试集分数：", model.score(X_test, y_test))

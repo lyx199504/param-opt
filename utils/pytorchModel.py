@@ -13,7 +13,6 @@ from sklearn.base import BaseEstimator
 from sklearn.metrics import accuracy_score
 
 from utils import set_seed, make_dir, yaml_config
-
 from utils.logUtil import logging_config
 
 # pytorch随机种子
@@ -145,7 +144,7 @@ class PytorchClassifier(nn.Module, BaseEstimator):
                 self.optimizer.zero_grad()  # 求解梯度前需要清空之前的梯度结果（因为model会累加梯度）
 
         mean_loss = total_loss/len(indexList)
-        score = self.score(X, y, np.vstack(y_prob))
+        score = self.score(X, y.cpu().detach().numpy(), np.vstack(y_prob))
 
         return mean_loss, score
 

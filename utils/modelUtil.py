@@ -8,11 +8,11 @@ from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 
-# 选择模型
 from example_dl_model import RNNClassifier
 from utils.pytorchModel import PytorchClassifier
 
 
+# 选择模型
 def model_selection(model_name, **params):
     if model_name == 'svc':
         return SVC(**params)
