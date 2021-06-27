@@ -40,4 +40,4 @@ def read_log(logFile):
 def get_param_from_log(model_name, model_key):
     paramList = read_log(yaml_config['dir']['log_dir'] + "/" + model_name + ".log")
     paramList = list(filter(lambda x: model_key in x['model_path'], paramList))
-    return paramList[0]['best_param_'] if paramList else None
+    return paramList[0] if paramList else None

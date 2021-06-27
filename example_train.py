@@ -34,10 +34,11 @@ if __name__ == "__main__":
         estimators = []
         for model_path in model_path_list:
             model_name = model_path.split('-')[0]
-            param = get_param_from_log(model_name, model_path)
-            if not param:
+            params = get_param_from_log(model_name, model_path)
+            if not params or 'best_param_' not in params:
                 print("没有找到对应的分类器，程序退出...")
                 exit()
+            param = params['best_param_']
             model = model_selection(model_name, **param)
             if model_name == "svc":
                 model.set_params(probability=True)
