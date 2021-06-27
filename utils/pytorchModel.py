@@ -32,7 +32,6 @@ class PytorchClassifier(nn.Module, BaseEstimator):
         self.model_name = "base_dl"
         self._estimator_type = "classifier"
         self.param_search = True
-        self.logger = None
 
         self.learning_rate = learning_rate
         self.epochs = epochs
@@ -110,9 +109,8 @@ class PytorchClassifier(nn.Module, BaseEstimator):
                 # 存储日志
                 log_dir = yaml_config['dir']['log_dir']
                 make_dir(log_dir)
-                if self.logger is None:
-                    self.logger = logging_config(self.model_name, log_dir + '/%s.log' % self.model_name)
-                self.logger.info({
+                logger = logging_config(self.model_name, log_dir + '/%s.log' % self.model_name)
+                logger.info({
                     "epoch": epoch+1,
                     "best_param_": self.get_params(),
                     "best_score_": val_score,
@@ -180,7 +178,6 @@ class PytorchRegressor(nn.Module, BaseEstimator):
         self.model_name = "base_dl"
         self._estimator_type = "regressor"
         self.param_search = True
-        self.logger = None
 
         self.learning_rate = learning_rate
         self.epochs = epochs
@@ -260,9 +257,8 @@ class PytorchRegressor(nn.Module, BaseEstimator):
                 # 存储日志
                 log_dir = yaml_config['dir']['log_dir']
                 make_dir(log_dir)
-                if self.logger is None:
-                    self.logger = logging_config(self.model_name, log_dir + '/%s.log' % self.model_name)
-                self.logger.info({
+                logger = logging_config(self.model_name, log_dir + '/%s.log' % self.model_name)
+                logger.info({
                     "epoch": epoch+1,
                     "best_param_": self.get_params(),
                     "best_score_": val_loss,
