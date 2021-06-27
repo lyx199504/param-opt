@@ -48,7 +48,8 @@ def bayes_search_train(X, y, model_name, model_param, model=None, X_test=None, y
     if 'device' in bys.best_estimator_.get_params():
         bys.best_estimator_.cpu()
         bys.best_estimator_.device = 'cpu'
-    joblib.dump(bys.best_estimator_, model_path)
+    model = bys.best_estimator_
+    joblib.dump(model, model_path)
 
     # 配置日志文件
     make_dir(log_dir)
@@ -65,3 +66,4 @@ def bayes_search_train(X, y, model_name, model_param, model=None, X_test=None, y
         log_message.update({"test_score": bys.score(X_test, y_test)})
     logger.info(log_message)
 
+    return model
