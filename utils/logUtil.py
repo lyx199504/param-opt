@@ -36,6 +36,12 @@ def read_log(logFile):
         logList = log.readlines()
     return list(map(lambda x: eval(re.findall(r"(?<=INFO:).*$", x)[0]), logList))
 
+# 根据模型分数排序获取对应参数列表
+def get_rank_param(model_name):
+    paramList = read_log(yaml_config['dir']['log_dir'] + "/%s.log" % model_name)
+    paramList = sorted(paramList, key=lambda x: x['best_score_'], reverse=True)
+    return paramList
+
 # 按照模型关键字获取对应超参数
 def get_param_from_log(model_name, model_key):
     paramList = read_log(yaml_config['dir']['log_dir'] + "/" + model_name + ".log")
