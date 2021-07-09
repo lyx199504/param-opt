@@ -9,13 +9,7 @@ from utils.pytorchModel import PytorchClassifier
 
 class RNNClassifier(PytorchClassifier):
     def __init__(self, learning_rate=0.001, epochs=100, batch_size=50, random_state=0, device='cpu'):
-        super().__init__()
-
-        self.learning_rate = learning_rate
-        self.epochs = epochs
-        self.batch_size = batch_size
-        self.random_state = random_state
-        self.device = device
+        super(RNNClassifier, self).__init__(learning_rate, epochs, batch_size, random_state, device)
 
     def create_model(self, _, out_num):
         hidden_size = 8
@@ -29,9 +23,9 @@ class RNNClassifier(PytorchClassifier):
         # X => rnn
         _, hn = self.rnn(X)  # hn: [1, batch_size, hidden_size]
         y = hn.squeeze(0)  # [batch_size, hidden_size]
-        # y = torch.cat(list(hn), dim=1)  # # [batch_size, hidden_size]
+        # y = torch.cat(list(hn), dim=1)  # [batch_size, hidden_size]
         # rnn => fc
         y = self.relu(self.fc(y))
         y = self.softmax(y)
-        # # 返回分类结果
+        # 返回分类结果
         return y
