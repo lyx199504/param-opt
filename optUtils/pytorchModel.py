@@ -12,18 +12,17 @@ from torch import nn
 from sklearn.base import BaseEstimator
 from sklearn.metrics import accuracy_score, mean_squared_error
 
-from utils import set_seed, make_dir, yaml_config
-from utils.logUtil import logging_config
+from optUtils import set_seed, make_dir, yaml_config
+from optUtils.logUtil import logging_config
 
 # pytorch随机种子
 def pytorch_set_seed(seed):
     if seed:
         set_seed(seed)
         torch.manual_seed(seed)  # cpu
+        torch.cuda.manual_seed(seed)  # gpu
         torch.cuda.manual_seed_all(seed)  # 并行gpu
-        # torch.backends.cudnn.enabled = False
-        # torch.backends.cudnn.deterministic = True  # cpu/gpu结果一致
-        # torch.backends.cudnn.benchmark = True  # 训练集变化不大时使训练加速
+        torch.backends.cudnn.deterministic = True  # cpu/gpu结果一致
 
 
 class PytorchClassifier(nn.Module, BaseEstimator):
@@ -38,6 +37,12 @@ class PytorchClassifier(nn.Module, BaseEstimator):
         self.batch_size = batch_size
         self.random_state = random_state
         self.device = device
+
+        # 优化器、损失函数、评价指标
+        self.optim = torch.optim.Adam
+        self.loss_fn = nn.CrossEntropyLoss()
+        self.metrics = accuracy_score
+        self.metrics_list = []  # 多个评价指标
 
     # numpy => tensor
     def to_tensor(self, data):
@@ -65,10 +70,8 @@ class PytorchClassifier(nn.Module, BaseEstimator):
         pytorch_set_seed(self.random_state)
         # 构建模型
         self.create_model(X.shape[1], len(set(y)))
-        self.to(self.device)
-        # 定义优化器，损失函数
-        self.optimizer = torch.optim.Adam(params=self.parameters(), lr=self.learning_rate)
-        self.loss_fn = nn.CrossEntropyLoss()
+        # 初始化优化器
+        self.optimizer = self.optim(params=self.parameters(), lr=self.learning_rate)
         # 初始化训练集
         X, y = self.to_tensor(X), self.to_tensor(y)
         train_index = list(range(0, X.shape[0], self.batch_size))
@@ -81,14 +84,21 @@ class PytorchClassifier(nn.Module, BaseEstimator):
         for epoch in range(self.epochs):
             start_time = time.time()
 
-            train_loss, train_score = self.fit_step(X, y, train_index, train=True)
+            self.to(self.device)
+            train_loss, train_score, train_score_list = self.fit_step(X, y, train_index, train=True)
+            train_score_dict = {self.metrics.__name__: train_score}
+            for i, metrics in enumerate(self.metrics_list):
+                train_score_dict.update({metrics.__name__: train_score_list[i]})
             massage = "epoch: %d/%d - train_loss: %.6f - train_score: %.6f" % (
                 epoch+1, self.epochs, train_loss, train_score)
 
-            # 有输入验证集，则计算val_loss和val_score
-            val_score = 0
+            # 有输入验证集，则计算val_loss和val_score等
+            val_score, val_score_dict = 0, {}
             if val_index:
-                val_loss, val_score = self.fit_step(X_val, y_val, val_index, train=False)
+                val_loss, val_score, val_score_list = self.fit_step(X_val, y_val, val_index, train=False)
+                val_score_dict = {self.metrics.__name__: val_score}
+                for i, metrics in enumerate(self.metrics_list):
+                    val_score_dict.update({metrics.__name__: val_score_list[i]})
                 massage += " - val_loss: %.6f - val_score: %.6f" % (val_loss, val_score)
 
             run_time = time.time() - start_time
@@ -100,12 +110,8 @@ class PytorchClassifier(nn.Module, BaseEstimator):
                 model_dir = yaml_config['dir']['model_dir']
                 make_dir(model_dir)
                 model_path = model_dir + '/%s-%03d-%s.model' % (self.model_name, epoch+1, int(time.time()))
-                device = self.device
-                self.device = 'cpu'
-                self.to(self.device)
+                self.to('cpu')
                 joblib.dump(self, model_path)
-                self.device = device
-                self.to(self.device)
                 # 存储日志
                 log_dir = yaml_config['dir']['log_dir']
                 make_dir(log_dir)
@@ -115,15 +121,14 @@ class PytorchClassifier(nn.Module, BaseEstimator):
                     "best_param_": self.get_params(),
                     "best_score_": val_score,
                     "train_score": train_score,
+                    "train_score_list": train_score_dict,
+                    "val_score_list": val_score_dict,
                     "model_path": model_path,
                 })
 
     # 拟合步骤
     def fit_step(self, X, y, indexList, train):
-        if train:
-            self.train()  # 训练模式
-        else:
-            self.eval()  # 求值模式
+        self.train() if train else self.eval()
 
         total_loss, y_prob = 0, []
         for i in indexList:
@@ -142,9 +147,12 @@ class PytorchClassifier(nn.Module, BaseEstimator):
                 self.optimizer.zero_grad()  # 求解梯度前需要清空之前的梯度结果（因为model会累加梯度）
 
         mean_loss = total_loss/len(indexList)
-        score = self.score(X, y.cpu().detach().numpy(), np.vstack(y_prob))
 
-        return mean_loss, score
+        y_numpy, y_prob_numpy = y.cpu().detach().numpy(), np.vstack(y_prob)
+        score = self.score(X, y_numpy, y_prob_numpy)
+        score_list = self.score_list(X, y_numpy, y_prob_numpy)
+
+        return mean_loss, score, score_list
 
     # 预测分类概率
     def predict_proba(self, X):
@@ -166,10 +174,27 @@ class PytorchClassifier(nn.Module, BaseEstimator):
             y_prob = self.predict_proba(X)
         return y_prob.argmax(1)
 
-    # 评价指标，精确度：accuracy
+    # 评价指标
     def score(self, X, y, y_prob=None):
+        if y_prob is None:
+            y_prob = self.predict_proba(X)
         y_pred = self.predict(X, y_prob)
-        return accuracy_score(y_pred, y)
+        if 'auc' in self.metrics.__name__:
+            return self.metrics(y, y_prob[:, 1])
+        return self.metrics(y, y_pred)
+
+    # 评价指标列表
+    def score_list(self, X, y, y_prob=None):
+        score_list = []
+        if y_prob is None:
+            y_prob = self.predict_proba(X)
+        y_pred = self.predict(X, y_prob)
+        for metrics in self.metrics_list:
+            if 'auc' in metrics.__name__:
+                score_list.append(metrics(y, y_prob[:, 1]))
+            else:
+                score_list.append(metrics(y, y_pred))
+        return score_list
 
 
 class PytorchRegressor(nn.Module, BaseEstimator):
@@ -184,6 +209,11 @@ class PytorchRegressor(nn.Module, BaseEstimator):
         self.batch_size = batch_size
         self.random_state = random_state
         self.device = device
+
+        # 优化器、损失函数、评价指标
+        self.optim = torch.optim.Adam
+        self.loss_fn = nn.MSELoss()
+        self.metrics = mean_squared_error
 
     # numpy => tensor
     def to_tensor(self, data):
@@ -213,10 +243,8 @@ class PytorchRegressor(nn.Module, BaseEstimator):
         pytorch_set_seed(self.random_state)
         # 构建模型
         self.create_model(X.shape[1], y.shape[1])
-        self.to(self.device)
-        # 定义优化器，损失函数
-        self.optimizer = torch.optim.Adam(params=self.parameters(), lr=self.learning_rate)
-        self.loss_fn = nn.MSELoss()
+        # 初始化优化器
+        self.optimizer = self.optim(params=self.parameters(), lr=self.learning_rate)
         # 初始化训练集
         X, y = self.to_tensor(X), self.to_tensor(y)
         train_index = list(range(0, X.shape[0], self.batch_size))
@@ -229,6 +257,7 @@ class PytorchRegressor(nn.Module, BaseEstimator):
         for epoch in range(self.epochs):
             start_time = time.time()
 
+            self.to(self.device)
             train_loss = self.fit_step(X, y, train_index, train=True)
             massage = "epoch: %d/%d - train_loss: %.6f" % (
                 epoch+1, self.epochs, train_loss)
@@ -248,12 +277,8 @@ class PytorchRegressor(nn.Module, BaseEstimator):
                 model_dir = yaml_config['dir']['model_dir']
                 make_dir(model_dir)
                 model_path = model_dir + '/%s-%03d-%s.model' % (self.model_name, epoch+1, int(time.time()))
-                device = self.device
-                self.device = 'cpu'
-                self.to(self.device)
+                self.to('cpu')
                 joblib.dump(self, model_path)
-                self.device = device
-                self.to(self.device)
                 # 存储日志
                 log_dir = yaml_config['dir']['log_dir']
                 make_dir(log_dir)
@@ -268,10 +293,7 @@ class PytorchRegressor(nn.Module, BaseEstimator):
 
     # 拟合步骤
     def fit_step(self, X, y, indexList, train):
-        if train:
-            self.train()  # 训练模式
-        else:
-            self.eval()  # 求值模式
+        self.train() if train else self.eval()
 
         total_loss = 0
         for i in indexList:
@@ -305,7 +327,7 @@ class PytorchRegressor(nn.Module, BaseEstimator):
         y_pred = np.vstack(y_pred)
         return y_pred
 
-    # 评价指标，损失
+    # 评价指标
     def score(self, X, y):
         y_pred = self.predict(X)
-        return mean_squared_error(y, y_pred)
+        return self.metrics(y, y_pred)

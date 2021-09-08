@@ -5,7 +5,7 @@
 import logging
 import re
 
-from utils import yaml_config
+from optUtils import yaml_config
 
 # 日志配置
 def logging_config(logName, fileName):

@@ -5,11 +5,11 @@
 
 from sklearn.datasets import load_iris
 
-from utils import yaml_config
-from utils.dataUtil import stratified_shuffle_split
-from utils.logUtil import get_param_from_log
-from utils.modelUtil import model_selection
-from utils.trainUtil import bayes_search_train
+from optUtils import yaml_config
+from optUtils.dataUtil import stratified_shuffle_split
+from optUtils.logUtil import get_param_from_log
+from optUtils.modelUtil import model_selection
+from optUtils.trainUtil import bayes_search_train
 
 if __name__ == "__main__":
     # 用鸢尾花数据集测试

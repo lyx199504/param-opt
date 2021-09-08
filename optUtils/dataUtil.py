@@ -5,7 +5,7 @@
 
 import numpy as np
 
-from utils import set_seed
+from optUtils import set_seed
 
 
 # 数据分层随机排列

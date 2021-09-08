@@ -9,7 +9,7 @@ from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 
 from example_dl_model import RNNClassifier
-from utils.pytorchModel import PytorchClassifier
+from optUtils.pytorchModel import PytorchClassifier
 
 
 # 选择模型

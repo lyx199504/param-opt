@@ -4,7 +4,7 @@
 # @Author : LYX-夜光
 from torch import nn
 
-from utils.pytorchModel import PytorchClassifier
+from optUtils.pytorchModel import PytorchClassifier
 
 
 class RNNClassifier(PytorchClassifier):
