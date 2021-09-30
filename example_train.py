@@ -12,7 +12,7 @@ from optUtils.pytorchModel import DLRegressor
 
 if __name__ == "__main__":
     """
-    本文件是使用模型进行常规N折交叉验证的demo
+    本文件是使用模型进行常规训练的demo
     """
     # 使用鸢尾花数据集
     X, y = load_iris()['data'], load_iris()['target']

@@ -8,7 +8,6 @@ import numpy as np
 
 import joblib
 from joblib import Parallel, delayed
-from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import KFold
 from skopt import BayesSearchCV
 
@@ -17,58 +16,58 @@ from optUtils.logUtil import logging_config
 from optUtils.modelUtil import model_selection
 
 # 交叉验证
-def cv_train(X, y, model_name, model_param=None, model=None, X_test=None, y_test=None):
+def cv_train(X, y, model_name, model_param={}, metrics_list=[], model=None):
     """
     :param X: 训练集的特征
     :param y: 训练集的标签
     :param model_name: 模型名称
-    :param model_param: 模型参数
+    :param model_param: 模型参数，可缺省
+    :param metrics_list: 多个评价指标，可缺省，默认使用模型分数
     :param model: 机器学习或深度学习模型，可缺省，默认根据模型名称获取模型
-    :param X_test: 测试集的特征，可缺省
-    :param y_test: 测试集的标签，可缺省
-    :return: model，模型文件
+    :return:
     """
 
     model_dir, log_dir = yaml_config['dir']['model_dir'], yaml_config['dir']['log_dir']
     cus_param, cv_param = yaml_config['cus_param'], yaml_config['cv_param']
 
     if model is None:
-        model = model_selection(model_name)
-    if model_param is None:
-        model_param = {}
-    else:
-        model.set_params(**model_param)
+        model = model_selection(model_name, **model_param)
 
-    def cv_score(model, X, y, scoring):
-        if scoring == 'roc_auc':
-            return roc_auc_score(y, model.predict_proba(X)[:, 1])
-        if scoring == 'roc_auc_ovr':
-            return roc_auc_score(y, model.predict_proba(X), multi_class='ovr')
-        return model.score(X, y)
+    # 计算每一折的评价指标
+    def cv_score(model, X, y):
+        score_list = []
+        if metrics_list:
+            y_pred = model.predict(X)
+            for metrics in metrics_list:
+                score_list.append(metrics(y, y_pred))
+            return score_list
+        score_list.append(model.score(X, y))
+        return score_list
 
+    # 获取每一折的训练和验证分数
     def get_score(train_index, val_index):
         start_time = time.time()
         model.fit(X[train_index], y[train_index])
-        score = cv_score(model, X[val_index], y[val_index], scoring=cv_param['scoring'])
+        train_score_list = cv_score(model, X[train_index], y[train_index])
+        val_score_list = cv_score(model, X[val_index], y[val_index])
         run_time = int(time.time() - start_time)
-        print("score: %.6f - time: %ds" % (score, run_time))
-        return score
+        print("train score: %.6f - val score: %.6f - time: %ds" % (train_score_list[0], val_score_list[0], run_time))
+        return train_score_list, val_score_list
 
     print("参数设置：%s" % model_param)
     parallel = Parallel(n_jobs=cv_param['workers'], verbose=4)
     k_fold = KFold(n_splits=cv_param['fold'])
-    score_list = parallel(
+    score_lists = parallel(
         delayed(get_score)(train, val) for train, val in k_fold.split(X, y))
-    best_score = np.mean(score_list)
 
-    model.fit(X, y)
+    train_score_lists = list(map(lambda x: x[0], score_lists))
+    val_score_lists = list(map(lambda x: x[1], score_lists))
 
-    make_dir(model_dir)
-    model_path = model_dir + '/%s-%s.model' % (model_name, int(time.time()))
-    if 'device' in model.get_params():
-        model.cpu()
-        model.device = 'cpu'
-    joblib.dump(model, model_path)
+    train_score_list = np.mean(train_score_lists, axis=0)
+    val_score_list = np.mean(val_score_lists, axis=0)
+
+    train_score_dict = {metrics.__name__: train_score for metrics, train_score in zip(metrics_list, train_score_list)}
+    val_score_dict = {metrics.__name__: val_score for metrics, val_score in zip(metrics_list, val_score_list)}
 
     # 配置日志文件
     make_dir(log_dir)
@@ -77,15 +76,12 @@ def cv_train(X, y, model_name, model_param=None, model=None, X_test=None, y_test
         "cus_param": cus_param,
         "cv_param": cv_param,
         "best_param_": model_param,
-        "best_score_": best_score,
-        "train_score": cv_score(model, X, y, scoring=cv_param['scoring']),
-        "model_path": model_path,
+        "best_score_": val_score_list[0],
+        "train_score": train_score_list[0],
+        "train_score_list": train_score_dict,
+        "val_score_list": val_score_dict,
     }
-    if X_test and y_test:
-        log_message.update({"test_score": model.score(X_test, y_test)})
     logger.info(log_message)
-
-    return model
 
 
 # 贝叶斯搜索
