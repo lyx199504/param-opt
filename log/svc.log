@@ -1,1 +1,0 @@
-2021-06-05 23:59:11:INFO:{'cus_param': {'seed': 1}, 'bys_param': {'n_iter': 10, 'fold': 3, 'workers': 3}, 'best_param_': {'C': 294.0759569948602, 'gamma': 0.004751736632153889, 'kernel': 'rbf', 'random_state': 218}, 'best_score_': 0.98, 'train_score': 0.9733333333333334, 'model_path': './model/svc-1622908751.model'}

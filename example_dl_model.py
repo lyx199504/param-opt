@@ -4,17 +4,21 @@
 # @Author : LYX-夜光
 from torch import nn
 
-from optUtils.pytorchModel import PytorchClassifier
+from optUtils.pytorchModel import DLClassifier
 
+"""
+本文件是模型构建的demo
+"""
 
-class RNNClassifier(PytorchClassifier):
+class RNNClassifier(DLClassifier):
     def __init__(self, learning_rate=0.001, epochs=100, batch_size=50, random_state=0, device='cpu'):
-        super(RNNClassifier, self).__init__(learning_rate, epochs, batch_size, random_state, device)
+        super().__init__(learning_rate, epochs, batch_size, random_state, device)
+        self.model_name = "rnn_clf"
 
-    def create_model(self, _, out_num):
+    def create_model(self):
         hidden_size = 8
         self.rnn = nn.RNN(input_size=1, hidden_size=hidden_size, dropout=0.2)
-        self.fc = nn.Linear(in_features=hidden_size, out_features=out_num)
+        self.fc = nn.Linear(in_features=hidden_size, out_features=3)
         self.relu = nn.ReLU()
         self.softmax = nn.Softmax(dim=1)
 

@@ -1,1 +1,0 @@
-2021-06-06 00:02:49:INFO:{'cus_param': {'seed': 1}, 'bys_param': {'n_iter': 10, 'fold': 3, 'workers': 3}, 'best_param_': {'batch_size': 50, 'epochs': 100, 'learning_rate': 0.006416120797822378, 'random_state': 190}, 'best_score_': 0.98, 'train_score': 0.98, 'model_path': './model/base_dl-1622908969.model'}

@@ -13,6 +13,11 @@ bys_param:
   fold: 3  # 交叉验证折数
   workers: 3  # 进程个数
 
+# 交叉验证参数
+cv_param:
+  fold: 3
+  workers: 3
+
 # 模型超参数
 model:
   - [lr, {
@@ -31,13 +36,13 @@ model:
       max_depth: !!python/tuple [9, 12],
       random_state: !!python/tuple [1, 500],
   }]
-  - [base_dl, {
-    learning_rate: !!python/tuple [0.001, 0.01],
-    epochs: [100],
-    batch_size: [50],
-    random_state: !!python/tuple [1, 500],
+  - [dl_clf, {
+      learning_rate: !!python/tuple [0.001, 0.01],
+      epochs: [100],
+      batch_size: [50],
+      random_state: !!python/tuple [1, 500],
   }]
-  - [rnn, {
+  - [rnn_clf, {
       learning_rate: !!python/tuple [0.01, 0.02],
       epochs: [100],
       batch_size: [150],

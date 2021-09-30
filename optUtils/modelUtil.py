@@ -4,27 +4,27 @@
 # @Author : LYX-夜光
 
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
+from sklearn.neighbors import KNeighborsClassifier
 
 from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
 
-from example_dl_model import RNNClassifier
-from optUtils.pytorchModel import PytorchClassifier
+from optUtils.pytorchModel import DLClassifier, DLRegressor
 
+model_dict = {
+    'knn': KNeighborsClassifier,
+    'svc': SVC,
+    'lr': LogisticRegression,
+    'dt': DecisionTreeClassifier,
+    'rf_clf': RandomForestClassifier,
+    'voting': VotingClassifier,
+    'dl_clf': DLClassifier,
+    'dl_reg': DLRegressor,
+}
 
 # 选择模型
 def model_selection(model_name, **params):
-    if model_name == 'svc':
-        return SVC(**params)
-    if model_name == 'lr':
-        return LogisticRegression(**params)
-    if model_name == 'rf_clf':
-        return RandomForestClassifier(**params)
-    if model_name == 'voting':
-        return VotingClassifier(**params)
-    if model_name == 'base_dl':
-        return PytorchClassifier(**params)
-    if model_name == 'rnn':
-        return RNNClassifier(**params)
-    return None
+    model = model_dict[model_name](**params)
+    return model
 

@@ -1,50 +1,37 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# @Time : 2021/6/5 15:23
+# @Time : 2021/9/30 11:46
 # @Author : LYX-夜光
-
 from sklearn.datasets import load_iris
+from sklearn.metrics import f1_score
 
+from example_dl_model import RNNClassifier
 from optUtils import yaml_config
 from optUtils.dataUtil import stratified_shuffle_split
-from optUtils.logUtil import get_param_from_log
-from optUtils.modelUtil import model_selection
-from optUtils.trainUtil import bayes_search_train
+from optUtils.pytorchModel import DLRegressor
 
 if __name__ == "__main__":
-    # 用鸢尾花数据集测试
+    """
+    本文件是使用模型进行常规N折交叉验证的demo
+    """
+    # 使用鸢尾花数据集
     X, y = load_iris()['data'], load_iris()['target']
-    n_splits, seed = yaml_config['bys_param']['fold'], yaml_config['cus_param']['seed']
-    X, y = stratified_shuffle_split(X, y, n_splits=n_splits, random_state=seed)
+    fold, seed = yaml_config['cv_param']['fold'], yaml_config['cus_param']['seed']
+    # 数据按折数分层排列
+    X, y = stratified_shuffle_split(X, y, n_splits=fold, random_state=seed)
+    train_point = int(len(X) / fold)
 
-    # # 单个模型
-    # for model_name, model_param in yaml_config['model']:
-    #     bayes_search_train(X, y, model_name, model_param)
+    # 分类器训练演示
+    model = RNNClassifier(learning_rate=0.011, epochs=100, batch_size=150, random_state=seed)
+    model.model_name += '_common'  # 修改模型名称
+    model.param_search = False  # 常规训练时将搜索参数模式关闭
+    # model.save_model = True  # 常规训练时，可开启保存模型功能
+    model.metrics_list = [f1_score]  # 添加多个评价指标
+    model.fit(X[train_point:], y[train_point:], X[:train_point], y[:train_point])
 
-    # 融合多个模型
-    for multi_model_name, multi_model_param in yaml_config['multi-model']:
-        model_path_list = [
-            # 'lr-1622908750',
-            'svc-1622908751',
-            # 'rf_clf-1622908755',
-            'base_dl-1622908969',
-            # 'rnn-1622910839'
-        ]
-
-        estimators = []
-        for model_path in model_path_list:
-            model_name = model_path.split('-')[0]
-            params = get_param_from_log(model_name, model_path)
-            if not params or 'best_param_' not in params:
-                print("没有找到对应的分类器，程序退出...")
-                exit()
-            param = params['best_param_']
-            model = model_selection(model_name, **param)
-            if model_name == "svc":
-                model.set_params(probability=True)
-            print("分类器[%s]的参数：%s" % (model_name, param))
-            estimators.append((model_name, model))
-
-        multi_model = model_selection(multi_model_name, **{'estimators': estimators})
-        yaml_config['bys_param']['n_iter'] = 1
-        bayes_search_train(X, y, multi_model_name, multi_model_param, model=multi_model)
+    # 回归器训练演示
+    model = DLRegressor(learning_rate=0.01, epochs=100, batch_size=150, random_state=seed)
+    model.model_name += '_common'
+    model.param_search = False
+    y = y/2  # 修改标签
+    model.fit(X[train_point:], y[train_point:], X[:train_point], y[:train_point])

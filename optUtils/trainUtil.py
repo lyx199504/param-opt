@@ -107,6 +107,7 @@ def bayes_search_train(X, y, model_name, model_param, model=None, X_test=None, y
     if not model:
         model = model_selection(model_name)
 
+    # 将训练集分为cv折，进行cv次训练得到交叉验证分数均值，最后再训练整个训练集
     bys = BayesSearchCV(
         model,
         model_param,
@@ -138,6 +139,8 @@ def bayes_search_train(X, y, model_name, model_param, model=None, X_test=None, y
         "train_score": bys.score(X, y),
         "model_path": model_path,
     }
+
+    # 如果有测试集，则计算测试集分数
     if X_test and y_test:
         log_message.update({"test_score": bys.score(X_test, y_test)})
     logger.info(log_message)
