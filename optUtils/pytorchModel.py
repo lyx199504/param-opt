@@ -69,19 +69,16 @@ class PytorchModel(nn.Module, BaseEstimator):
         self.optimizer = self.optim(params=self.parameters(), lr=self.learning_rate)
         # 初始化训练集
         X, y = self.to_tensor(X), self.to_tensor(y)
-        train_index = list(range(0, X.shape[0], self.batch_size))
         # 若不进行超参数搜索，则初始化验证集
-        val_index = []
         if not self.param_search and X_val is not None and y_val is not None:
             X_val, y_val = self.to_tensor(X_val), self.to_tensor(y_val)
-            val_index = list(range(0, X_val.shape[0], self.batch_size))
 
         # 训练每个epoch
         for epoch in range(self.epochs):
             start_time = time.time()
 
             self.to(self.device)
-            train_loss, train_score, train_score_list = self.fit_step(X, y, train_index, train=True)
+            train_loss, train_score, train_score_list = self.fit_epoch(X, y, train=True)
             train_score_dict = {self.metrics.__name__: train_score}
             for i, metrics in enumerate(self.metrics_list):
                 train_score_dict.update({metrics.__name__: train_score_list[i]})
@@ -90,8 +87,8 @@ class PytorchModel(nn.Module, BaseEstimator):
 
             # 有输入验证集，则计算val_loss和val_score等
             val_score, val_score_dict = 0, {}
-            if val_index:
-                val_loss, val_score, val_score_list = self.fit_step(X_val, y_val, val_index, train=False)
+            if not self.param_search and X_val is not None and y_val is not None:
+                val_loss, val_score, val_score_list = self.fit_epoch(X_val, y_val, train=False)
                 val_score_dict = {self.metrics.__name__: val_score}
                 for i, metrics in enumerate(self.metrics_list):
                     val_score_dict.update({metrics.__name__: val_score_list[i]})
@@ -124,11 +121,23 @@ class PytorchModel(nn.Module, BaseEstimator):
                     "model_path": model_path,
                 })
 
+    # 每轮拟合
+    def fit_epoch(self, X, y, train):
+        mean_loss, y_hat = self.fit_step(X, y, train)
+
+        y_numpy = y.cpu().detach().numpy()
+        y_hat_numpy = np.hstack(y_hat) if len(y_hat[0].shape) == 1 else np.vstack(y_hat)
+        score = self.score(X, y_numpy, y_hat_numpy)
+        score_list = self.score_list(X, y_numpy, y_hat_numpy)
+
+        return mean_loss, score, score_list
+
     # 拟合步骤
-    def fit_step(self, X, y, indexList, train):
+    def fit_step(self, X, y, train):
         self.train() if train else self.eval()
 
         total_loss, y_hat = 0, []
+        indexList = range(0, X.shape[0], self.batch_size)
         for i in indexList:
             X_batch = X[i:i + self.batch_size].to(self.device)
             y_batch = y[i:i + self.batch_size].to(self.device)
@@ -146,20 +155,15 @@ class PytorchModel(nn.Module, BaseEstimator):
 
         mean_loss = total_loss / len(indexList)
 
-        y_numpy = y.cpu().detach().numpy()
-        y_hat_numpy = np.hstack(y_hat) if len(y_hat[0].shape) == 1 else np.vstack(y_hat)
-        score = self.score(X, y_numpy, y_hat_numpy)
-        score_list = self.score_list(X, y_numpy, y_hat_numpy)
+        return mean_loss, y_hat
 
-        return mean_loss, score, score_list
+    # # 评价指标计算
+    # def score(self, X, y, y_prob=None):
+    #     pass
 
-    # 评价指标计算
-    def score(self, X, y, y_prob=None):
-        pass
-
-    # 多个评价指标计算
-    def score_list(self, X, y, y_prob=None):
-        pass
+    # # 多个评价指标计算
+    # def score_list(self, X, y, y_prob=None):
+    #     pass
 
 # 深度学习分类器
 class DLClassifier(PytorchModel):
@@ -281,15 +285,78 @@ class DLRegressor(PytorchModel):
         return y_pred
 
     # 评价指标
-    def score(self, X, y, y_prob=None):
-        y_pred = self.predict(X)
+    def score(self, X, y, y_pred=None):
+        if y_pred is None:
+            y_pred = self.predict(X)
         return self.metrics(y, y_pred)
 
     # 评价指标列表
-    def score_list(self, X, y, y_prob=None):
+    def score_list(self, X, y, y_pred=None):
         score_list = []
-        y_pred = self.predict(X)
+        if y_pred is None:
+            y_pred = self.predict(X)
         for metrics in self.metrics_list:
             score = metrics(y, y_pred)
             score_list.append(score)
         return score_list
+
+# 自编码器
+class AE(DLRegressor):
+    def __init__(self, learning_rate=0.001, epochs=100, batch_size=50, random_state=0, device='cpu'):
+        super().__init__(learning_rate, epochs, batch_size, random_state, device)
+        self.model_name = "ae"
+        self.alpha = 0  # 异常阈值
+
+        self.metrics = accuracy_score
+
+    # 组网
+    def create_model(self):
+        self.fc1 = nn.Linear(in_features=4, out_features=1)
+        self.fc2 = nn.Linear(in_features=1, out_features=4)
+        self.relu = nn.ReLU()
+        self.sigmoid = nn.Sigmoid()
+
+    # 前向推理
+    def forward(self, X):
+        Y = self.fc1(X)
+        Y = self.sigmoid(Y)
+        Y = self.fc2(Y)
+        Y = self.relu(Y)
+        return Y
+
+    # 每轮拟合
+    def fit_epoch(self, X, y, train):
+        if train:
+            # 只训练正常数据，并获取异常阈值，误差大于异常阈值则可定为异常数据
+            X_0 = X[y == 0]
+            _, X_0_hat = self.fit_step(X_0, X_0, train)
+            X_0_numpy, X_0_hat_numpy = X_0.cpu().detach().numpy(), np.vstack(X_0_hat)
+            self.alpha = max(self.calError(X_0_numpy, X_0_hat_numpy))
+
+        mean_loss, X_hat = self.fit_step(X, X, train=False)  # 不进行训练
+        X_numpy, X_hat_numpy = X.cpu().detach().numpy(), np.vstack(X_hat)
+
+        y_hat = self.getPredLabel(X_numpy, X_hat_numpy)
+        y_numpy = y.cpu().detach().numpy()
+
+        score = self.score(X, y_numpy, y_hat)
+        score_list = self.score_list(X, y_numpy, y_hat)
+
+        return mean_loss, score, score_list
+
+    # 计算误差
+    def calError(self, X, X_pred):
+        return np.sum((X - X_pred)**2, 1)
+
+    # 根据误差获取预测的标签
+    def getPredLabel(self, X, X_pred):
+        errors = self.calError(X, X_pred)
+        y_pred = np.array([1 if error > self.alpha else 0 for error in errors])
+        return y_pred
+
+    # 预测标签
+    def predict(self, X):
+        X_hat = super().predict(X)
+        X_numpy = X.cpu().detach().numpy()
+        y_pred = self.getPredLabel(X_numpy, X_hat)
+        return y_pred

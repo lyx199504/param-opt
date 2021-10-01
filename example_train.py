@@ -3,12 +3,12 @@
 # @Time : 2021/9/30 11:46
 # @Author : LYX-夜光
 from sklearn.datasets import load_iris
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score
 
 from example_dl_model import RNNClassifier
 from optUtils import yaml_config
 from optUtils.dataUtil import stratified_shuffle_split
-from optUtils.pytorchModel import DLRegressor
+from optUtils.pytorchModel import DLRegressor, AE
 
 if __name__ == "__main__":
     """
@@ -33,5 +33,14 @@ if __name__ == "__main__":
     model = DLRegressor(learning_rate=0.01, epochs=100, batch_size=150, random_state=seed)
     model.model_name += '_common'
     model.param_search = False
-    y = y/2  # 修改标签
+    y_ = y/2  # 修改标签
+    model.fit(X[train_point:], y_[train_point:], X[:train_point], y_[:train_point])
+
+    # 自编码器训练演示
+    model = AE(learning_rate=0.03, epochs=100, batch_size=150, random_state=seed)
+    model.model_name += '_common'
+    model.param_search = False
+    y[y == 2] = 1  # 把第2类转为第1类，变成二分类
+    model.metrics = f1_score  # 主评价指标
+    model.metrics_list = [accuracy_score, precision_score, recall_score]  # 添加多个评价指标
     model.fit(X[train_point:], y[train_point:], X[:train_point], y[:train_point])
