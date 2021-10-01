@@ -357,6 +357,7 @@ class AE(DLRegressor):
     # 预测标签
     def predict(self, X):
         X_hat = super().predict(X)
-        X_numpy = X.cpu().detach().numpy()
-        y_pred = self.getPredLabel(X_numpy, X_hat)
+        if type(X).__name__ == 'Tensor':
+            X = X.cpu().detach().numpy()
+        y_pred = self.getPredLabel(X, X_hat)
         return y_pred
