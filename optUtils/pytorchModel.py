@@ -316,7 +316,7 @@ class AE(DLRegressor):
             X_0 = X[y == 0]
             _, X_0_hat = self.fit_step(X_0, X_0, train)
             X_0_numpy, X_0_hat_numpy = X_0.cpu().detach().numpy(), np.vstack(X_0_hat)
-            self.alpha = max(self.calError(X_0_numpy, X_0_hat_numpy))
+            self.alpha = self.calThreshold(X_0_numpy, X_0_hat_numpy)
 
         mean_loss, X_hat = self.fit_step(X, X, train=False)  # 不进行训练
         X_numpy, X_hat_numpy = X.cpu().detach().numpy(), np.vstack(X_hat)
@@ -330,12 +330,16 @@ class AE(DLRegressor):
         return mean_loss, score, score_list
 
     # 计算误差
-    def calError(self, X, X_pred):
-        return np.sum((X - X_pred)**2, 1)
+    def calError(self, X, X_hat):
+        return np.sum((X - X_hat) ** 2, 1)
+
+    # 计算阈值
+    def calThreshold(self, X, X_hat):
+        return max(self.calError(X, X_hat))
 
     # 根据误差获取预测的标签
-    def getPredLabel(self, X, X_pred):
-        errors = self.calError(X, X_pred)
+    def getPredLabel(self, X, X_hat):
+        errors = self.calError(X, X_hat)
         y_pred = np.array([1 if error > self.alpha else 0 for error in errors])
         return y_pred
 
