@@ -158,7 +158,7 @@ class PytorchModel(nn.Module, BaseEstimator):
         return mean_loss, y_hat
 
     # 预测结果
-    def predict_output(self, X, batch_size=10000):
+    def predict_output(self, X, batch_size):
         self.eval()  # 求值模式
         self.to(self.device)
         X = self.to_tensor(X).to(self.device)
@@ -207,7 +207,7 @@ class DLClassifier(PytorchModel):
         return y_prob
 
     # 预测分类标签
-    def predict(self, X, y_prob=None, batch_size=20000):
+    def predict(self, X, y_prob=None, batch_size=10000):
         if y_prob is None:
             y_prob = self.predict_proba(X, batch_size)
         return y_prob.argmax(axis=1)
