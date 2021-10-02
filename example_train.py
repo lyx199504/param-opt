@@ -8,6 +8,7 @@ from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_sc
 from example_dl_model import RNNClassifier
 from optUtils import yaml_config
 from optUtils.dataUtil import stratified_shuffle_split
+from optUtils.metricsUtil import f1_micro_score, f1_macro_score
 from optUtils.pytorchModel import DLRegressor, AE
 
 if __name__ == "__main__":
@@ -22,11 +23,11 @@ if __name__ == "__main__":
     train_point = int(len(X) / fold)
 
     # 分类器训练演示
-    model = RNNClassifier(learning_rate=0.011, epochs=100, batch_size=150, random_state=seed)
+    model = RNNClassifier(learning_rate=0.01, epochs=100, batch_size=150, random_state=seed)
     model.model_name += '_common'  # 修改模型名称
     model.param_search = False  # 常规训练时将搜索参数模式关闭
     # model.save_model = True  # 常规训练时，可开启保存模型功能
-    model.metrics_list = [f1_score]  # 添加多个评价指标
+    model.metrics_list = [f1_micro_score, f1_macro_score]  # 添加多个评价指标
     model.fit(X[train_point:], y[train_point:], X[:train_point], y[:train_point])
 
     # 回归器训练演示

@@ -32,24 +32,26 @@ def cv_train(X, y, model_name, model_param={}, metrics_list=[], model=None):
 
     if model is None:
         model = model_selection(model_name, **model_param)
+    if metrics_list:
+        model.metrics = metrics_list[0]
 
     # 计算每一折的评价指标
-    def cv_score(model, X, y):
+    def cv_score(mdl, X, y):
         score_list = []
         if metrics_list:
-            y_pred = model.predict(X)
+            y_pred = mdl.predict(X)
             for metrics in metrics_list:
                 score_list.append(metrics(y, y_pred))
             return score_list
-        score_list.append(model.score(X, y))
+        score_list.append(mdl.score(X, y))
         return score_list
 
     # 获取每一折的训练和验证分数
-    def get_score(train_index, val_index):
+    def get_score(mdl, train_index, val_index):
         start_time = time.time()
-        model.fit(X[train_index], y[train_index])
-        train_score_list = cv_score(model, X[train_index], y[train_index])
-        val_score_list = cv_score(model, X[val_index], y[val_index])
+        mdl.fit(X[train_index], y[train_index])
+        train_score_list = cv_score(mdl, X[train_index], y[train_index])
+        val_score_list = cv_score(mdl, X[val_index], y[val_index])
         run_time = int(time.time() - start_time)
         print("train score: %.6f - val score: %.6f - time: %ds" % (train_score_list[0], val_score_list[0], run_time))
         return train_score_list, val_score_list
@@ -58,7 +60,7 @@ def cv_train(X, y, model_name, model_param={}, metrics_list=[], model=None):
     parallel = Parallel(n_jobs=cv_param['workers'], verbose=4)
     k_fold = KFold(n_splits=cv_param['fold'])
     score_lists = parallel(
-        delayed(get_score)(train, val) for train, val in k_fold.split(X, y))
+        delayed(get_score)(model, train, val) for train, val in k_fold.split(X, y))
 
     train_score_lists = list(map(lambda x: x[0], score_lists))
     val_score_lists = list(map(lambda x: x[1], score_lists))

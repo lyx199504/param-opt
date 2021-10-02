@@ -15,8 +15,8 @@ bys_param:
 
 # 交叉验证参数
 cv_param:
-  fold: 3
-  workers: 3
+  fold: 10
+  workers: 2
 
 # 模型超参数
 model:

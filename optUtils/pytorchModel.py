@@ -157,13 +157,18 @@ class PytorchModel(nn.Module, BaseEstimator):
 
         return mean_loss, y_hat
 
-    # # 评价指标计算
-    # def score(self, X, y, y_prob=None):
-    #     pass
-
-    # # 多个评价指标计算
-    # def score_list(self, X, y, y_prob=None):
-    #     pass
+    # 预测结果
+    def predict_output(self, X, batch_size=10000):
+        self.eval()  # 求值模式
+        self.to(self.device)
+        X = self.to_tensor(X).to(self.device)
+        y_hat = []
+        for i in range(0, X.shape[0], batch_size):
+            X_batch = X[i:i + batch_size]
+            y_hat_batch = self.forward(X_batch).cpu().detach().numpy()
+            y_hat.append(y_hat_batch)
+        y_hat = np.hstack(y_hat) if len(y_hat[0].shape) == 1 else np.vstack(y_hat)
+        return y_hat
 
 # 深度学习分类器
 class DLClassifier(PytorchModel):
@@ -180,7 +185,7 @@ class DLClassifier(PytorchModel):
     # 组网
     def create_model(self):
         self.fc1 = nn.Linear(in_features=4, out_features=3)
-        self.fc2 = nn.Linear(in_features=3, out_features=3)
+        self.fc2 = nn.Linear(in_features=3, out_features=self.label_num)
         self.relu = nn.ReLU()
         self.softmax = nn.Softmax(dim=1)
 
@@ -197,23 +202,14 @@ class DLClassifier(PytorchModel):
         super().fit(X, y, X_val, y_val)
 
     # 预测分类概率
-    def predict_proba(self, X):
-        self.eval()  # 求值模式
-        self.to(self.device)
-        X = self.to_tensor(X).to(self.device)
-        batch_size = 20000
-        y_prob = []
-        for i in range(0, X.shape[0], batch_size):
-            X_batch = X[i:i + batch_size]
-            y_prob_batch = self.forward(X_batch).cpu().detach().numpy()
-            y_prob.append(y_prob_batch)
-        y_prob = np.vstack(y_prob)
+    def predict_proba(self, X, batch_size=10000):
+        y_prob = super().predict_output(X, batch_size)
         return y_prob
 
     # 预测分类标签
-    def predict(self, X, y_prob=None):
+    def predict(self, X, y_prob=None, batch_size=20000):
         if y_prob is None:
-            y_prob = self.predict_proba(X)
+            y_prob = self.predict_proba(X, batch_size)
         return y_prob.argmax(axis=1)
 
     # 评价指标
@@ -221,8 +217,6 @@ class DLClassifier(PytorchModel):
         if y_prob is None:
             y_prob = self.predict_proba(X)
         y_pred = self.predict(X, y_prob)
-        if self.label_num > 2 and 'f1_score' == self.metrics.__name__:
-            return self.metrics(y, y_pred, average='micro')
         if self.label_num == 2 and 'auc' in self.metrics.__name__:
             return self.metrics(y, y_prob[:, 1])
         return self.metrics(y, y_pred)
@@ -271,17 +265,8 @@ class DLRegressor(PytorchModel):
         return y
 
     # 预测标签
-    def predict(self, X):
-        self.eval()  # 求值模式
-        self.to(self.device)
-        X = self.to_tensor(X).to(self.device)
-        batch_size = 20000
-        y_pred = []
-        for i in range(0, X.shape[0], batch_size):
-            X_batch = X[i:i + batch_size]
-            y_pred_batch = self.forward(X_batch).cpu().detach().numpy()
-            y_pred.append(y_pred_batch)
-        y_pred = np.hstack(y_pred) if len(y_pred[0].shape) == 1 else np.vstack(y_pred)
+    def predict(self, X, batch_size=10000):
+        y_pred = super().predict_output(X, batch_size)
         return y_pred
 
     # 评价指标
@@ -355,8 +340,8 @@ class AE(DLRegressor):
         return y_pred
 
     # 预测标签
-    def predict(self, X):
-        X_hat = super().predict(X)
+    def predict(self, X, batch_size=10000):
+        X_hat = super().predict(X, batch_size)
         if type(X).__name__ == 'Tensor':
             X = X.cpu().detach().numpy()
         y_pred = self.getPredLabel(X, X_hat)

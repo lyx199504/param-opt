@@ -18,7 +18,7 @@ class RNNClassifier(DLClassifier):
     def create_model(self):
         hidden_size = 8
         self.rnn = nn.RNN(input_size=1, hidden_size=hidden_size, dropout=0.2)
-        self.fc = nn.Linear(in_features=hidden_size, out_features=3)
+        self.fc = nn.Linear(in_features=hidden_size, out_features=self.label_num)
         self.relu = nn.ReLU()
         self.softmax = nn.Softmax(dim=1)
 
