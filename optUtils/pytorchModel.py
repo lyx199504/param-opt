@@ -8,6 +8,7 @@ import joblib
 import numpy as np
 import torch
 from torch import nn
+import torch.nn.functional as F
 
 from sklearn.base import BaseEstimator
 from sklearn.metrics import accuracy_score, mean_squared_error
@@ -38,9 +39,8 @@ class PytorchModel(nn.Module, BaseEstimator):
         self.random_state = random_state
         self.device = device
 
-        # 优化器、损失函数、评价指标
+        # 优化器、评价指标
         self.optim = None
-        self.loss_fn = None
         self.metrics = None
         self.metrics_list = []  # 多个评价指标
 
@@ -50,14 +50,6 @@ class PytorchModel(nn.Module, BaseEstimator):
             return data
         dataType = torch.float32 if 'float' in str(data.dtype) else torch.int64
         return torch.tensor(data, dtype=dataType)
-
-    # 组网
-    def create_model(self):
-        pass
-
-    # 前向推理
-    def forward(self, X):
-        pass
 
     # 训练
     def fit(self, X, y, X_val=None, y_val=None):
@@ -133,19 +125,20 @@ class PytorchModel(nn.Module, BaseEstimator):
         return mean_loss, score, score_list
 
     # 拟合步骤
-    def fit_step(self, X, y, train):
+    def fit_step(self, X, y=None, train=True):
         self.train() if train else self.eval()
 
         total_loss, y_hat = 0, []
         indexList = range(0, X.shape[0], self.batch_size)
         for i in indexList:
             X_batch = X[i:i + self.batch_size].to(self.device)
-            y_batch = y[i:i + self.batch_size].to(self.device)
-            y_hat_batch = self.forward(X_batch)
+            y_batch = X_batch if y is None else y[i:i + self.batch_size].to(self.device)
+            output = self.forward(X_batch)
 
-            loss = self.loss_fn(y_hat_batch, y_batch)
+            loss = self.loss_fn(output, y_batch)
             total_loss += loss.item()
 
+            y_hat_batch = output[0] if type(output) == tuple else output
             y_hat.append(y_hat_batch.cpu().detach().numpy())
 
             if train:
@@ -165,7 +158,9 @@ class PytorchModel(nn.Module, BaseEstimator):
         y_hat = []
         for i in range(0, X.shape[0], batch_size):
             X_batch = X[i:i + batch_size]
-            y_hat_batch = self.forward(X_batch).cpu().detach().numpy()
+            output = self.forward(X_batch)
+            y_hat_batch = output[0] if type(output) == tuple else output
+            y_hat_batch = y_hat_batch.cpu().detach().numpy()
             y_hat.append(y_hat_batch)
         y_hat = np.hstack(y_hat) if len(y_hat[0].shape) == 1 else np.vstack(y_hat)
         return y_hat
@@ -179,7 +174,6 @@ class DLClassifier(PytorchModel):
         self.label_num = 2  # 默认二分类
 
         self.optim = torch.optim.Adam
-        self.loss_fn = nn.CrossEntropyLoss()
         self.metrics = accuracy_score
 
     # 组网
@@ -188,6 +182,11 @@ class DLClassifier(PytorchModel):
         self.fc2 = nn.Linear(in_features=3, out_features=self.label_num)
         self.relu = nn.ReLU()
         self.softmax = nn.Softmax(dim=1)
+
+    # 损失函数
+    def loss_fn(self, output, y_true):
+        y_hat = output[0] if type(output) == tuple else output
+        return F.cross_entropy(y_hat, y_true)
 
     # 前向推理
     def forward(self, X):
@@ -245,7 +244,6 @@ class DLRegressor(PytorchModel):
         self._estimator_type = "regressor"
 
         self.optim = torch.optim.Adam
-        self.loss_fn = nn.MSELoss()
         self.metrics = mean_squared_error
 
     # 组网
@@ -254,6 +252,11 @@ class DLRegressor(PytorchModel):
         self.fc2 = nn.Linear(in_features=2, out_features=1)
         self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
+
+    # 损失函数
+    def loss_fn(self, output, y_true):
+        y_hat = output[0] if type(output) == tuple else output
+        return F.mse_loss(y_hat, y_true)
 
     # 前向推理
     def forward(self, X):
@@ -296,29 +299,29 @@ class AE(DLRegressor):
 
     # 组网
     def create_model(self):
-        self.fc1 = nn.Linear(in_features=4, out_features=1)
-        self.fc2 = nn.Linear(in_features=1, out_features=4)
-        self.relu = nn.ReLU()
-        self.sigmoid = nn.Sigmoid()
+        self.encoder = nn.Sequential(
+            nn.Linear(in_features=4, out_features=1),
+        )
+        self.decoder = nn.Sequential(
+            nn.Linear(in_features=1, out_features=4)
+        )
 
     # 前向推理
     def forward(self, X):
-        Y = self.fc1(X)
-        Y = self.sigmoid(Y)
-        Y = self.fc2(Y)
-        Y = self.relu(Y)
-        return Y
+        Z = self.encoder(X)
+        X_hat = self.decoder(Z)
+        return X_hat
 
     # 每轮拟合
     def fit_epoch(self, X, y, train):
         if train:
             # 只训练正常数据，并获取异常阈值，误差大于异常阈值则可定为异常数据
             X_0 = X[y == 0]
-            _, X_0_hat = self.fit_step(X_0, X_0, train)
+            _, X_0_hat = self.fit_step(X_0, train=train)
             X_0_numpy, X_0_hat_numpy = X_0.cpu().detach().numpy(), np.vstack(X_0_hat)
             self.alpha = self.calThreshold(X_0_numpy, X_0_hat_numpy)
 
-        mean_loss, X_hat = self.fit_step(X, X, train=False)  # 不进行训练
+        mean_loss, X_hat = self.fit_step(X, train=False)  # 不进行训练
         X_numpy, X_hat_numpy = X.cpu().detach().numpy(), np.vstack(X_hat)
 
         y_hat = self.getPredLabel(X_numpy, X_hat_numpy)
@@ -350,3 +353,42 @@ class AE(DLRegressor):
             X = X.cpu().detach().numpy()
         y_pred = self.getPredLabel(X, X_hat)
         return y_pred
+
+# 变分自编码
+class VAE(AE):
+    def __init__(self, learning_rate=0.001, epochs=100, batch_size=50, random_state=0, device='cpu'):
+        super().__init__(learning_rate, epochs, batch_size, random_state, device)
+        self.model_name = "vae"
+
+    # 组网
+    def create_model(self):
+        self.encoder = nn.Sequential(
+            nn.Linear(in_features=4, out_features=2),
+        )
+        self.decoder = nn.Sequential(
+            nn.Linear(in_features=1, out_features=4),
+            nn.Sigmoid(),
+        )
+
+    # 损失函数
+    def loss_fn(self, output, y_true):
+        y_hat, mu, log_sigma = output
+        BCE = F.binary_cross_entropy(y_hat, y_true, size_average=False)
+        D_KL = 0.5 * torch.sum(torch.exp(log_sigma) + torch.pow(mu, 2) - 1. - log_sigma)
+        loss = BCE + D_KL
+        return loss
+
+    # 前向推理
+    def forward(self, X):
+        H = self.encoder(X)
+        mu, log_sigma = H.chunk(2, dim=-1)
+        Z = self.reparameterize(mu, log_sigma)
+        X_hat = self.decoder(Z)
+        return X_hat, mu, log_sigma
+
+    # 重构Z层：均值+随机采样*标准差
+    def reparameterize(self, mu, log_sigma):
+        std = torch.exp(log_sigma * 0.5)
+        esp = torch.randn(std.size())
+        z = mu + esp * std
+        return z
