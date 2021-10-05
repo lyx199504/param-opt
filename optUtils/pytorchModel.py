@@ -40,7 +40,7 @@ class PytorchModel(nn.Module, BaseEstimator):
         self.device = device
 
         # 优化器、评价指标
-        self.optim = None
+        self.optim = torch.optim.Adam
         self.metrics = None
         self.metrics_list = []  # 多个评价指标
 
@@ -173,7 +173,6 @@ class DLClassifier(PytorchModel):
         self._estimator_type = "classifier"
         self.label_num = 2  # 默认二分类
 
-        self.optim = torch.optim.Adam
         self.metrics = accuracy_score
 
     # 组网
@@ -217,7 +216,7 @@ class DLClassifier(PytorchModel):
             y_prob = self.predict_proba(X)
         y_pred = self.predict(X, y_prob)
         if self.label_num == 2 and 'auc' in self.metrics.__name__:
-            return self.metrics(y, y_prob[:, 1])
+            return self.metrics(y, y_prob[:, 1]) if len(y_prob.shape) > 1 else self.metrics(y, y_prob)
         return self.metrics(y, y_pred)
 
     # 评价指标列表
@@ -227,10 +226,8 @@ class DLClassifier(PytorchModel):
             y_prob = self.predict_proba(X)
         y_pred = self.predict(X, y_prob)
         for metrics in self.metrics_list:
-            if self.label_num > 2 and 'f1_score' == metrics.__name__:
-                score = metrics(y, y_pred, average='macro')
-            elif self.label_num == 2 and 'auc' in metrics.__name__:
-                score = metrics(y, y_prob[:, 1])
+            if self.label_num == 2 and 'auc' in metrics.__name__:
+                score = metrics(y, y_prob[:, 1]) if len(y_prob.shape) > 1 else metrics(y, y_prob)
             else:
                 score = metrics(y, y_pred)
             score_list.append(score)
@@ -243,7 +240,6 @@ class DLRegressor(PytorchModel):
         self.model_name = "dl_reg"
         self._estimator_type = "regressor"
 
-        self.optim = torch.optim.Adam
         self.metrics = mean_squared_error
 
     # 组网
@@ -289,13 +285,11 @@ class DLRegressor(PytorchModel):
         return score_list
 
 # 自编码器
-class AE(DLRegressor):
+class AE(DLClassifier):
     def __init__(self, learning_rate=0.001, epochs=100, batch_size=50, random_state=0, device='cpu'):
         super().__init__(learning_rate, epochs, batch_size, random_state, device)
         self.model_name = "ae"
         self.alpha = 0  # 异常阈值
-
-        self.metrics = accuracy_score
 
     # 组网
     def create_model(self):
@@ -305,6 +299,11 @@ class AE(DLRegressor):
         self.decoder = nn.Sequential(
             nn.Linear(in_features=1, out_features=4)
         )
+
+    # 损失函数
+    def loss_fn(self, output, y_true):
+        y_hat = output[0] if type(output) == tuple else output
+        return F.mse_loss(y_hat, y_true)
 
     # 前向推理
     def forward(self, X):
@@ -324,34 +323,36 @@ class AE(DLRegressor):
         mean_loss, X_hat = self.fit_step(X, train=False)  # 不进行训练
         X_numpy, X_hat_numpy = X.cpu().detach().numpy(), np.vstack(X_hat)
 
-        y_hat = self.getPredLabel(X_numpy, X_hat_numpy)
+        y_prob = self.calError(X_numpy, X_hat_numpy)
         y_numpy = y.cpu().detach().numpy()
 
-        score = self.score(X, y_numpy, y_hat)
-        score_list = self.score_list(X, y_numpy, y_hat)
+        score = self.score(X, y_numpy, y_prob)
+        score_list = self.score_list(X, y_numpy, y_prob)
 
         return mean_loss, score, score_list
 
     # 计算误差
     def calError(self, X, X_hat):
-        return np.sum((X - X_hat) ** 2, 1)
+        errors = np.mean((X - X_hat) ** 2, 1)
+        return errors
 
     # 计算阈值
     def calThreshold(self, X, X_hat):
         return max(self.calError(X, X_hat))
 
-    # 根据误差获取预测的标签
-    def getPredLabel(self, X, X_hat):
-        errors = self.calError(X, X_hat)
-        y_pred = np.array([1 if error > self.alpha else 0 for error in errors])
-        return y_pred
-
-    # 预测标签
-    def predict(self, X, batch_size=10000):
-        X_hat = super().predict(X, batch_size)
+    # 预测概率
+    def predict_proba(self, X, batch_size=10000):
+        X_hat = super().predict_proba(X, batch_size)
         if type(X).__name__ == 'Tensor':
             X = X.cpu().detach().numpy()
-        y_pred = self.getPredLabel(X, X_hat)
+        y_prob = self.calError(X, X_hat)
+        return y_prob
+
+    # 预测标签
+    def predict(self, X, y_prob=None, batch_size=10000):
+        if y_prob is None:
+            y_prob = self.predict_proba(X, batch_size)
+        y_pred = np.array([1 if error > self.alpha else 0 for error in y_prob])
         return y_pred
 
 # 变分自编码
@@ -373,7 +374,7 @@ class VAE(AE):
     # 损失函数
     def loss_fn(self, output, y_true):
         y_hat, mu, log_sigma = output
-        BCE = F.binary_cross_entropy(y_hat, y_true, size_average=False)
+        BCE = F.binary_cross_entropy(y_hat, y_true, reduction='sum')
         D_KL = 0.5 * torch.sum(torch.exp(log_sigma) + torch.pow(mu, 2) - 1. - log_sigma)
         loss = BCE + D_KL
         return loss
