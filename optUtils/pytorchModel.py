@@ -333,7 +333,8 @@ class AE(DLClassifier):
 
     # 计算误差
     def calError(self, X, X_hat):
-        errors = np.mean((X - X_hat) ** 2, 1)
+        # 二范数，同np.sqrt(np.sum((X - X_hat) ** 2, axis=1))
+        errors = np.linalg.norm(X - X_hat, axis=1, ord=2)
         return errors
 
     # 计算阈值

@@ -10,7 +10,7 @@ from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 
-from optUtils.pytorchModel import DLClassifier, DLRegressor, AE
+from optUtils.pytorchModel import DLClassifier, DLRegressor, AE, VAE
 
 model_dict = {
     'knn': KNeighborsClassifier,
@@ -22,6 +22,7 @@ model_dict = {
     'dl_clf': DLClassifier,
     'dl_reg': DLRegressor,
     'ae': AE,
+    'vae': VAE,
 }
 
 # 选择模型
