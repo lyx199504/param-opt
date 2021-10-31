@@ -20,12 +20,12 @@ cv_param:
 
 # 模型超参数
 model:
-  - [lr, {
+  - [lr_clf, {
       max_iter: !!python/tuple [50, 200],
       C: !!python/tuple [0.8, 1.2, 'uniform'],
       random_state: !!python/tuple [1, 500],
   }]
-  - [svc, {
+  - [svm_clf, {
       kernel: ['rbf'],
       gamma: !!python/tuple [0.00001, 1000.0, 'log-uniform'],
       C: !!python/tuple [0.001, 100000.0, 'log-uniform'],

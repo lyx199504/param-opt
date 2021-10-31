@@ -285,7 +285,7 @@ class DLRegressor(PytorchModel):
         return score_list
 
 # 自编码器
-class AE(DLClassifier):
+class AutoEncoder(DLClassifier):
     def __init__(self, learning_rate=0.001, epochs=100, batch_size=50, random_state=0, device='cpu'):
         super().__init__(learning_rate, epochs, batch_size, random_state, device)
         self.model_name = "ae"
@@ -313,51 +313,51 @@ class AE(DLClassifier):
 
     # 每轮拟合
     def fit_epoch(self, X, y, train):
+        y_numpy = y.cpu().detach().numpy()
         if train:
-            # 只训练正常数据，并获取异常阈值，误差大于异常阈值则可定为异常数据
-            X_0 = X[y == 0]
-            _, X_0_hat = self.fit_step(X_0, train=train)
-            X_0_numpy, X_0_hat_numpy = X_0.cpu().detach().numpy(), np.vstack(X_0_hat)
-            self.alpha = self.calThreshold(X_0_numpy, X_0_hat_numpy)
+            self.fit_step(X[y_numpy == 1], train=True)  # 只训练正常数据
 
         mean_loss, X_hat = self.fit_step(X, train=False)  # 不进行训练
         X_numpy, X_hat_numpy = X.cpu().detach().numpy(), np.vstack(X_hat)
+        if train:
+            self.alpha = self.get_alpha(X_numpy[y_numpy == 1], X_hat_numpy[y_numpy == 1])
 
-        y_prob = self.calError(X_numpy, X_hat_numpy)
-        y_numpy = y.cpu().detach().numpy()
+        y_prob = self.get_proba_score(X_numpy, X_hat_numpy)  # y_pred取1的概率
 
         score = self.score(X, y_numpy, y_prob)
         score_list = self.score_list(X, y_numpy, y_prob)
 
         return mean_loss, score, score_list
 
-    # 计算误差
-    def calError(self, X, X_hat):
-        # 二范数，同np.sqrt(np.sum((X - X_hat) ** 2, axis=1))
-        errors = np.linalg.norm(X - X_hat, axis=1, ord=2)
-        return errors
+    # 预测得分
+    def get_proba_score(self, X, X_hat):
+        # # 二范数，同np.sqrt(np.sum((X - X_hat) ** 2, axis=1))
+        # errors = np.linalg.norm(X - X_hat, axis=1, ord=2)
+        errors = np.sum(np.abs(X - X_hat), axis=1)
+        scores = 1 / (errors + 1)  # 根据误差计算得分
+        return scores
 
-    # 计算阈值
-    def calThreshold(self, X, X_hat):
-        return max(self.calError(X, X_hat))
+    # 阈值
+    def get_alpha(self, X, X_hat):
+        return min(self.get_proba_score(X, X_hat))
 
     # 预测概率
     def predict_proba(self, X, batch_size=10000):
         X_hat = super().predict_proba(X, batch_size)
         if type(X).__name__ == 'Tensor':
             X = X.cpu().detach().numpy()
-        y_prob = self.calError(X, X_hat)
+        y_prob = self.get_proba_score(X, X_hat)
         return y_prob
 
     # 预测标签
     def predict(self, X, y_prob=None, batch_size=10000):
         if y_prob is None:
             y_prob = self.predict_proba(X, batch_size)
-        y_pred = np.array([1 if error > self.alpha else 0 for error in y_prob])
+        y_pred = np.array([0 if score < self.alpha else 1 for score in y_prob])
         return y_pred
 
 # 变分自编码
-class VAE(AE):
+class VariationalAutoEncoder(AutoEncoder):
     def __init__(self, learning_rate=0.001, epochs=100, batch_size=50, random_state=0, device='cpu'):
         super().__init__(learning_rate, epochs, batch_size, random_state, device)
         self.model_name = "vae"

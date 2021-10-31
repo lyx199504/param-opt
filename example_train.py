@@ -9,7 +9,7 @@ from example_dl_model import RNNClassifier
 from optUtils import yaml_config
 from optUtils.dataUtil import stratified_shuffle_split
 from optUtils.metricsUtil import f1_micro_score, f1_macro_score
-from optUtils.pytorchModel import DLRegressor, AE, VAE
+from optUtils.pytorchModel import DLRegressor, AutoEncoder, VariationalAutoEncoder
 
 if __name__ == "__main__":
     """
@@ -38,7 +38,7 @@ if __name__ == "__main__":
     model.fit(X[train_point:], y_[train_point:], X[:train_point], y_[:train_point])
 
     # 自编码器训练演示
-    model = AE(learning_rate=0.03, epochs=100, batch_size=150, random_state=seed)
+    model = AutoEncoder(learning_rate=0.03, epochs=100, batch_size=150, random_state=seed)
     model.model_name += '_common'
     model.param_search = False
     y[y == 2] = 1  # 把第2类转为第1类，变成二分类
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     for i in range(X.shape[-1]):
         max_x, min_x = X[:, i].max(), X[:, i].min()
         X[:, i] = (X[:, i] - min_x) / (max_x - min_x)
-    model = VAE(learning_rate=0.03, epochs=100, batch_size=150, random_state=seed)
+    model = VariationalAutoEncoder(learning_rate=0.03, epochs=100, batch_size=150, random_state=seed)
     model.model_name += '_common'
     model.param_search = False
     y[y == 2] = 1  # 把第2类转为第1类，变成二分类

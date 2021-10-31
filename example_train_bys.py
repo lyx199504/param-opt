@@ -33,14 +33,14 @@ if __name__ == "__main__":
 
     # 训练配置文件[param.yaml]中定义的multi-model
     for multi_model_name, multi_model_param in yaml_config['multi-model']:
-        # 融合svc和dl_clf模型
+        # 融合svm_clf和dl_clf模型
         estimators = []
-        for model_name in ['svc', 'dl_clf']:
+        for model_name in ['svm_clf', 'dl_clf']:
             # 获取分数最高的基模型参数
             params = get_best_param(model_name)
             param = params['best_param_']
             model = model_selection(model_name, **param)
-            if model_name == "svc":
+            if model_name == "svm_clf":
                 model.set_params(probability=True)
             print("分类器[%s]的参数：%s" % (model_name, param))
             estimators.append((model_name, model))

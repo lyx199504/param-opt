@@ -27,7 +27,7 @@ if __name__ == "__main__":
         'rnn_clf': RNNClassifier,
     })
     # 交叉验证
-    model_name_list = ['svc', 'rnn_clf']
+    model_name_list = ['svm_clf', 'rnn_clf']
     metrics_list = [accuracy_score, f1_micro_score, f1_macro_score]
     for model_name in model_name_list:
         cv_train(X, y, model_name, model_param={'random_state': seed}, metrics_list=metrics_list)
