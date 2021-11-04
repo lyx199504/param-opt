@@ -289,7 +289,8 @@ class AutoEncoder(DLClassifier):
     def __init__(self, learning_rate=0.001, epochs=100, batch_size=50, random_state=0, device='cpu'):
         super().__init__(learning_rate, epochs, batch_size, random_state, device)
         self.model_name = "ae"
-        self.alpha = 0  # 异常阈值
+        self.alpha_range = (0, 1)  # 正常阈值范围
+        self.normal = 0  # 正常数据的类别
 
     # 组网
     def create_model(self):
@@ -315,12 +316,13 @@ class AutoEncoder(DLClassifier):
     def fit_epoch(self, X, y, train):
         y_numpy = y.cpu().detach().numpy()
         if train:
-            self.fit_step(X[y_numpy == 1], train=True)  # 只训练正常数据
+            self.fit_step(X[y_numpy == self.normal], train=True)  # 只训练正常数据
 
         mean_loss, X_hat = self.fit_step(X, train=False)  # 不进行训练
         X_numpy, X_hat_numpy = X.cpu().detach().numpy(), np.vstack(X_hat)
         if train:
-            self.alpha = self.get_alpha(X_numpy[y_numpy == 1], X_hat_numpy[y_numpy == 1])
+            # 用正常数据获取正常阈值范围
+            self.alpha_range = self.get_alpha(X_numpy[y_numpy == self.normal], X_hat_numpy[y_numpy == self.normal])
 
         y_prob = self.get_proba_score(X_numpy, X_hat_numpy)  # y_pred取1的概率
 
@@ -331,15 +333,16 @@ class AutoEncoder(DLClassifier):
 
     # 预测得分
     def get_proba_score(self, X, X_hat):
-        # # 二范数，同np.sqrt(np.sum((X - X_hat) ** 2, axis=1))
-        # errors = np.linalg.norm(X - X_hat, axis=1, ord=2)
-        errors = np.sum(np.abs(X - X_hat), axis=1)
-        scores = 1 / (errors + 1)  # 根据误差计算得分
+        # 二范数，同np.sqrt(np.sum((X - X_hat) ** 2, axis=1))
+        errors = np.linalg.norm(X - X_hat, axis=1, ord=2)
+        # 根据误差计算得分，将分数控制在0-1内
+        scores = errors / X.shape[1] if self.normal == 0 else 1 / (errors + 1)
         return scores
 
-    # 阈值
+    # 计算阈值
     def get_alpha(self, X, X_hat):
-        return min(self.get_proba_score(X, X_hat))
+        scores = self.get_proba_score(X, X_hat)
+        return (0, max(scores)) if self.normal == 0 else (min(scores), 1)
 
     # 预测概率
     def predict_proba(self, X, batch_size=10000):
@@ -353,7 +356,7 @@ class AutoEncoder(DLClassifier):
     def predict(self, X, y_prob=None, batch_size=10000):
         if y_prob is None:
             y_prob = self.predict_proba(X, batch_size)
-        y_pred = np.array([0 if score < self.alpha else 1 for score in y_prob])
+        y_pred = np.array([self.normal if self.alpha_range[0] <= score <= self.alpha_range[1] else 1 - self.normal for score in y_prob])
         return y_pred
 
 # 变分自编码
