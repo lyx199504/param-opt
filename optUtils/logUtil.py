@@ -43,10 +43,12 @@ def get_param_from_log(model_name, model_key):
     return paramList[0] if paramList else None
 
 # 根据模型分数排序获取对应参数列表
-def get_rank_param(model_name, param='best_score_'):
+def get_rank_param(model_name, key_list=('best_score_',), reverse_list=(True,)):
     paramList = read_log(yaml_config['dir']['log_dir'] + "/%s.log" % model_name)
-    if paramList and param in paramList[0]:
-        paramList = sorted(paramList, key=lambda x: x[param], reverse=True)
+    for key in key_list:
+        paramList = filter(lambda x: key in x, paramList)
+    for key, reverse in zip(key_list[::-1], reverse_list[::-1]):
+        paramList = sorted(paramList, key=lambda x: x[key], reverse=reverse)
     return paramList
 
 # 获取分数最高的参数

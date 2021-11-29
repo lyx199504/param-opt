@@ -46,7 +46,7 @@ class PytorchModel(nn.Module, BaseEstimator):
 
     # numpy => tensor
     def to_tensor(self, data):
-        if type(data).__name__ == 'Tensor':
+        if type(data) == torch.Tensor:
             return data
         dataType = torch.float32 if 'float' in str(data.dtype) else torch.int64
         return torch.tensor(data, dtype=dataType)
@@ -97,8 +97,13 @@ class PytorchModel(nn.Module, BaseEstimator):
                     model_dir = yaml_config['dir']['model_dir']
                     make_dir(model_dir)
                     model_path = model_dir + '/%s-%03d-%s.model' % (self.model_name, epoch + 1, int(time.time()))
-                    self.to('cpu')
+                    # 存储模型时，model及其属性device必须保持相同cpu
+                    device = self.device
+                    self.device = 'cpu'
+                    self.to(self.device)
                     joblib.dump(self, model_path)
+                    self.device = device
+                    self.to(self.device)
                 # 存储日志
                 log_dir = yaml_config['dir']['log_dir']
                 make_dir(log_dir)
@@ -108,8 +113,8 @@ class PytorchModel(nn.Module, BaseEstimator):
                     "best_param_": self.get_params(),
                     "best_score_": val_score,
                     "train_score": train_score,
-                    "train_score_list": train_score_dict,
-                    "val_score_list": val_score_dict,
+                    "train_score_dict": train_score_dict,
+                    "val_score_dict": val_score_dict,
                     "model_path": model_path,
                 })
 
@@ -132,10 +137,10 @@ class PytorchModel(nn.Module, BaseEstimator):
         indexList = range(0, X.shape[0], self.batch_size)
         for i in indexList:
             X_batch = X[i:i + self.batch_size].to(self.device)
-            y_batch = X_batch if y is None else y[i:i + self.batch_size].to(self.device)
+            y_batch = None if y is None else y[i:i + self.batch_size].to(self.device)
             output = self.forward(X_batch)
 
-            loss = self.loss_fn(output, y_batch)
+            loss = self.loss_fn(output, y_batch, X_batch)
             total_loss += loss.item()
 
             y_hat_batch = output[0] if type(output) == tuple else output
@@ -151,22 +156,33 @@ class PytorchModel(nn.Module, BaseEstimator):
         return mean_loss, y_hat
 
     # 预测结果
-    def predict_output(self, X, batch_size):
+    def predict_output(self, X, batch_size, output_all_value=False):
         self.eval()  # 求值模式
         self.to(self.device)
-        X = self.to_tensor(X).to(self.device)
+        X = self.to_tensor(X)
         y_hat = []
         for i in range(0, X.shape[0], batch_size):
-            X_batch = X[i:i + batch_size]
+            X_batch = X[i:i + batch_size].to(self.device)
             output = self.forward(X_batch)
-            y_hat_batch = output[0] if type(output) == tuple else output
-            y_hat_batch = y_hat_batch.cpu().detach().numpy()
-            y_hat.append(y_hat_batch)
-        y_hat = np.hstack(y_hat) if len(y_hat[0].shape) == 1 else np.vstack(y_hat)
+            if output_all_value:
+                output_list = output if type(output) == tuple else [output]
+                y_hat.append([out.cpu().detach().numpy() for out in output_list])
+            else:
+                y_hat_batch = output[0] if type(output) == tuple else output
+                y_hat.append(y_hat_batch.cpu().detach().numpy())
+        if output_all_value:
+            y_hat_list = []
+            for i in range(len(y_hat[0])):
+                output_list = [out[i] for out in y_hat]
+                output_stack = np.hstack(output_list) if len(y_hat[0][i].shape) == 1 else np.vstack(output_list)
+                y_hat_list.append(output_stack)
+            y_hat = y_hat_list
+        else:
+            y_hat = np.hstack(y_hat) if len(y_hat[0].shape) == 1 else np.vstack(y_hat)
         return y_hat
 
 # 深度学习分类器
-class DLClassifier(PytorchModel):
+class DeepLearningClassifier(PytorchModel):
     def __init__(self, learning_rate=0.001, epochs=100, batch_size=50, random_state=0, device='cpu'):
         super().__init__(learning_rate, epochs, batch_size, random_state, device)
         self.model_name = "dl_clf"
@@ -180,10 +196,9 @@ class DLClassifier(PytorchModel):
         self.fc1 = nn.Linear(in_features=4, out_features=3)
         self.fc2 = nn.Linear(in_features=3, out_features=self.label_num)
         self.relu = nn.ReLU()
-        self.softmax = nn.Softmax(dim=1)
 
     # 损失函数
-    def loss_fn(self, output, y_true):
+    def loss_fn(self, output, y_true, X_true):
         y_hat = output[0] if type(output) == tuple else output
         return F.cross_entropy(y_hat, y_true)
 
@@ -192,7 +207,6 @@ class DLClassifier(PytorchModel):
         y = self.fc1(X)
         y = self.relu(y)
         y = self.fc2(y)
-        y = self.softmax(y)
         return y
 
     def fit(self, X, y, X_val=None, y_val=None):
@@ -211,20 +225,20 @@ class DLClassifier(PytorchModel):
         return y_prob.argmax(axis=1)
 
     # 评价指标
-    def score(self, X, y, y_prob=None):
+    def score(self, X, y, y_prob=None, batch_size=10000):
         if y_prob is None:
-            y_prob = self.predict_proba(X)
-        y_pred = self.predict(X, y_prob)
+            y_prob = self.predict_proba(X, batch_size)
+        y_pred = self.predict(X, y_prob, batch_size)
         if self.label_num == 2 and 'auc' in self.metrics.__name__:
             return self.metrics(y, y_prob[:, 1]) if len(y_prob.shape) > 1 else self.metrics(y, y_prob)
         return self.metrics(y, y_pred)
 
     # 评价指标列表
-    def score_list(self, X, y, y_prob=None):
+    def score_list(self, X, y, y_prob=None, batch_size=10000):
         score_list = []
         if y_prob is None:
-            y_prob = self.predict_proba(X)
-        y_pred = self.predict(X, y_prob)
+            y_prob = self.predict_proba(X, batch_size)
+        y_pred = self.predict(X, y_prob, batch_size)
         for metrics in self.metrics_list:
             if self.label_num == 2 and 'auc' in metrics.__name__:
                 score = metrics(y, y_prob[:, 1]) if len(y_prob.shape) > 1 else metrics(y, y_prob)
@@ -234,7 +248,7 @@ class DLClassifier(PytorchModel):
         return score_list
 
 # 深度学习回归器
-class DLRegressor(PytorchModel):
+class DeepLearningRegressor(PytorchModel):
     def __init__(self, learning_rate=0.001, epochs=100, batch_size=50, random_state=0, device='cpu'):
         super().__init__(learning_rate, epochs, batch_size, random_state, device)
         self.model_name = "dl_reg"
@@ -250,7 +264,7 @@ class DLRegressor(PytorchModel):
         self.sigmoid = nn.Sigmoid()
 
     # 损失函数
-    def loss_fn(self, output, y_true):
+    def loss_fn(self, output, y_true, X_true):
         y_hat = output[0] if type(output) == tuple else output
         return F.mse_loss(y_hat, y_true)
 
@@ -269,27 +283,27 @@ class DLRegressor(PytorchModel):
         return y_pred
 
     # 评价指标
-    def score(self, X, y, y_pred=None):
+    def score(self, X, y, y_pred=None, batch_size=10000):
         if y_pred is None:
-            y_pred = self.predict(X)
+            y_pred = self.predict(X, batch_size)
         return self.metrics(y, y_pred)
 
     # 评价指标列表
-    def score_list(self, X, y, y_pred=None):
+    def score_list(self, X, y, y_pred=None, batch_size=10000):
         score_list = []
         if y_pred is None:
-            y_pred = self.predict(X)
+            y_pred = self.predict(X, batch_size)
         for metrics in self.metrics_list:
             score = metrics(y, y_pred)
             score_list.append(score)
         return score_list
 
 # 自编码器
-class AutoEncoder(DLClassifier):
+class AutoEncoder(DeepLearningClassifier):
     def __init__(self, learning_rate=0.001, epochs=100, batch_size=50, random_state=0, device='cpu'):
         super().__init__(learning_rate, epochs, batch_size, random_state, device)
         self.model_name = "ae"
-        self.alpha_range = (0, 1)  # 正常阈值范围
+        self.threshold = 0.5  # 正异常阈值
         self.normal = 0  # 正常数据的类别
 
     # 组网
@@ -302,9 +316,9 @@ class AutoEncoder(DLClassifier):
         )
 
     # 损失函数
-    def loss_fn(self, output, y_true):
-        y_hat = output[0] if type(output) == tuple else output
-        return F.mse_loss(y_hat, y_true)
+    def loss_fn(self, output, y_true, X_true):
+        X_hat = output[0] if type(output) == tuple else output
+        return F.mse_loss(X_hat, X_true)
 
     # 前向推理
     def forward(self, X):
@@ -314,17 +328,14 @@ class AutoEncoder(DLClassifier):
 
     # 每轮拟合
     def fit_epoch(self, X, y, train):
-        y_numpy = y.cpu().detach().numpy()
-        if train:
-            self.fit_step(X[y_numpy == self.normal], train=True)  # 只训练正常数据
-
-        mean_loss, X_hat = self.fit_step(X, train=False)  # 不进行训练
+        mean_loss, X_hat = self.fit_step(X, train=train)
         X_numpy, X_hat_numpy = X.cpu().detach().numpy(), np.vstack(X_hat)
         if train:
-            # 用正常数据获取正常阈值范围
-            self.alpha_range = self.get_alpha(X_numpy[y_numpy == self.normal], X_hat_numpy[y_numpy == self.normal])
+            # 用训练数据获取阈值范围
+            self.threshold = self.get_threshold(X_numpy, X_hat_numpy)
 
         y_prob = self.get_proba_score(X_numpy, X_hat_numpy)  # y_pred取1的概率
+        y_numpy = y.cpu().detach().numpy()
 
         score = self.score(X, y_numpy, y_prob)
         score_list = self.score_list(X, y_numpy, y_prob)
@@ -340,14 +351,13 @@ class AutoEncoder(DLClassifier):
         return scores
 
     # 计算阈值
-    def get_alpha(self, X, X_hat):
-        scores = self.get_proba_score(X, X_hat)
-        return (0, max(scores)) if self.normal == 0 else (min(scores), 1)
+    def get_threshold(self, X, X_hat):
+        return 0.5
 
     # 预测概率
     def predict_proba(self, X, batch_size=10000):
         X_hat = super().predict_proba(X, batch_size)
-        if type(X).__name__ == 'Tensor':
+        if type(X) == torch.Tensor:
             X = X.cpu().detach().numpy()
         y_prob = self.get_proba_score(X, X_hat)
         return y_prob
@@ -356,8 +366,42 @@ class AutoEncoder(DLClassifier):
     def predict(self, X, y_prob=None, batch_size=10000):
         if y_prob is None:
             y_prob = self.predict_proba(X, batch_size)
-        y_pred = np.array([self.normal if self.alpha_range[0] <= score <= self.alpha_range[1] else 1 - self.normal for score in y_prob])
+        if self.normal == 0:
+            y_pred = np.array([self.normal if score <= self.threshold else 1 - self.normal for score in y_prob])
+        else:
+            y_pred = np.array([self.normal if score >= self.threshold else 1 - self.normal for score in y_prob])
         return y_pred
+
+# 监督自编码
+class SupervisedAutoEncoder(AutoEncoder):
+    def __init__(self, learning_rate=0.001, epochs=100, batch_size=50, random_state=0, device='cpu'):
+        super().__init__(learning_rate, epochs, batch_size, random_state, device)
+        self.model_name = "sae"
+
+    # 每轮拟合
+    def fit_epoch(self, X, y, train):
+        y_numpy = y.cpu().detach().numpy()
+        normal_index = y_numpy == self.normal
+        if train:
+            self.fit_step(X[normal_index], train=True)  # 只训练正常数据
+
+        mean_loss, X_hat = self.fit_step(X, train=False)  # 不进行训练
+        X_numpy, X_hat_numpy = X.cpu().detach().numpy(), np.vstack(X_hat)
+        if train:
+            # 用正常数据获取正常阈值范围
+            self.threshold = self.get_threshold(X_numpy[normal_index], X_hat_numpy[normal_index])
+
+        y_prob = self.get_proba_score(X_numpy, X_hat_numpy)  # y_pred取1的概率
+
+        score = self.score(X, y_numpy, y_prob)
+        score_list = self.score_list(X, y_numpy, y_prob)
+
+        return mean_loss, score, score_list
+
+    # 计算阈值
+    def get_threshold(self, X, X_hat):
+        scores = self.get_proba_score(X, X_hat)
+        return max(scores) if self.normal == 0 else min(scores)
 
 # 变分自编码
 class VariationalAutoEncoder(AutoEncoder):
@@ -376,9 +420,9 @@ class VariationalAutoEncoder(AutoEncoder):
         )
 
     # 损失函数
-    def loss_fn(self, output, y_true):
-        y_hat, mu, log_sigma = output
-        BCE = F.binary_cross_entropy(y_hat, y_true, reduction='sum')
+    def loss_fn(self, output, y_true, X_true):
+        X_hat, mu, log_sigma = output
+        BCE = F.binary_cross_entropy(X_hat, X_true, reduction='sum')
         D_KL = 0.5 * torch.sum(torch.exp(log_sigma) + torch.pow(mu, 2) - 1. - log_sigma)
         loss = BCE + D_KL
         return loss
@@ -397,3 +441,9 @@ class VariationalAutoEncoder(AutoEncoder):
         esp = torch.randn(std.size())
         z = mu + esp * std
         return z
+
+# 监督变分自编码
+class SupervisedVariationalAutoEncoder(SupervisedAutoEncoder, VariationalAutoEncoder):
+    def __init__(self, learning_rate=0.001, epochs=100, batch_size=50, random_state=0, device='cpu'):
+        super().__init__(learning_rate, epochs, batch_size, random_state, device)
+        self.model_name = "svae"

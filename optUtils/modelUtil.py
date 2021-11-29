@@ -10,7 +10,8 @@ from sklearn.svm import SVC, SVR
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 
-from optUtils.pytorchModel import DLClassifier, DLRegressor, AutoEncoder, VariationalAutoEncoder
+from optUtils.pytorchModel import DeepLearningClassifier, DeepLearningRegressor, AutoEncoder, SupervisedAutoEncoder, \
+    VariationalAutoEncoder, SupervisedVariationalAutoEncoder
 
 model_dict = {
     'knn_clf': KNeighborsClassifier,
@@ -24,10 +25,12 @@ model_dict = {
     'rf_clf': RandomForestClassifier,
     'rf_reg': RandomForestRegressor,
     'voting': VotingClassifier,
-    'dl_clf': DLClassifier,
-    'dl_reg': DLRegressor,
+    'dl_clf': DeepLearningClassifier,
+    'dl_reg': DeepLearningRegressor,
     'ae': AutoEncoder,
+    'sae': SupervisedAutoEncoder,
     'vae': VariationalAutoEncoder,
+    'svae': SupervisedVariationalAutoEncoder,
 }
 
 # 选择模型

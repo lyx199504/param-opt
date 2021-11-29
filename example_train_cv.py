@@ -8,7 +8,7 @@ from sklearn.metrics import accuracy_score
 from example_dl_model import RNNClassifier
 from optUtils import yaml_config
 from optUtils.dataUtil import stratified_shuffle_split
-from optUtils.metricsUtil import f1_micro_score, f1_macro_score
+from optUtils.metricsUtil import f1_micro_score, f1_macro_score, f1_weighted_score
 from optUtils.modelUtil import model_dict
 from optUtils.trainUtil import cv_train
 
@@ -28,6 +28,6 @@ if __name__ == "__main__":
     })
     # 交叉验证
     model_name_list = ['svm_clf', 'rnn_clf']
-    metrics_list = [accuracy_score, f1_micro_score, f1_macro_score]
+    metrics_list = [accuracy_score, f1_micro_score, f1_macro_score, f1_weighted_score]
     for model_name in model_name_list:
         cv_train(X, y, model_name, model_param={'random_state': seed}, metrics_list=metrics_list)
