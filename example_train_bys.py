@@ -9,7 +9,7 @@ from example_dl_model import RNNClassifier
 from optUtils import yaml_config
 from optUtils.dataUtil import stratified_shuffle_split
 from optUtils.logUtil import get_best_param
-from optUtils.modelUtil import model_selection, model_dict
+from optUtils.modelUtil import model_selection, model_registration
 from optUtils.trainUtil import bayes_search_train
 
 if __name__ == "__main__":
@@ -22,10 +22,10 @@ if __name__ == "__main__":
     # 数据按折数分层排列
     X, y = stratified_shuffle_split(X, y, n_splits=n_splits, random_state=seed)
 
-    # 添加自己构造的模型到[./optUtils/modelUtil.py]文件中
-    model_dict.update({
-        'rnn_clf': RNNClassifier,
-    })
+    # 注册自己构造的模型
+    model_registration(
+        rnn_clf=RNNClassifier,
+    )
 
     # 训练配置文件[param.yaml]中定义的model
     for model_name, model_param in yaml_config['model']:
