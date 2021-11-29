@@ -12,22 +12,23 @@ from optUtils import set_seed
 def stratified_shuffle_split(X, y, n_splits, random_state=0):
     if random_state:
         set_seed(random_state)
-    # 每个标签下标列表，每个标签的样本个数
-    indexList_label, len_label = {}, {}
-    # 按标签取出样本，打乱样本下标
+    # 按标签取出样本，再打乱样本下标
+    indexList_label = {}
     for label in set(y):
         indexList_label[label] = np.where(y == label)[0]
         np.random.shuffle(indexList_label[label])
-        len_label[label] = int(np.ceil(len(indexList_label[label]) / n_splits))
-    # 每个标签的样本平均分成n_splits份，设标签个数为label_num，则共有label_num*n_splits份样本数据
-    # 再以标签间隔的形式拼成新数据，即先拼接每个标签的第一份样本数据、再拼接每个标签的第二份样本数据、...
-    # 其中每个标签的第i份样本数据拼接后再打乱
-    indexList = np.array([], dtype=int)
-    for i in range(n_splits):
-        indexList_i = np.array([], dtype=int)
-        for label in len_label:
-            indexList_label_i = indexList_label[label][len_label[label] * i: len_label[label] * (i + 1)]
-            indexList_i = np.append(indexList_i, indexList_label_i)
-        np.random.shuffle(indexList_i)
-        indexList = np.append(indexList, indexList_i)
+    # 将每个标签的样本分为n_splits份，再按顺序排列每份样本，即按照如下排列：
+    # 第1个标签的第1份样本,第2个标签的第1份样本,...,第n个标签的第1份样本,第1个标签的第2份样本,...
+    # 每个标签的第1份样本排列后称为第1折，第2份样本排列后称为第2折，...，同时打乱每一折的样本
+    indexList = []
+    for n in range(n_splits, 0, -1):
+        indexList_n = []
+        for label in indexList_label:
+            split_point = int(len(indexList_label[label]) / n + 0.5)
+            indexList_n.append(indexList_label[label][:split_point])
+            indexList_label[label] = indexList_label[label][split_point:]
+        indexList_n = np.hstack(indexList_n)
+        np.random.shuffle(indexList_n)
+        indexList.append(indexList_n)
+    indexList = np.hstack(indexList)
     return X[indexList], y[indexList]
