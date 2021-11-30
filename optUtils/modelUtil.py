@@ -13,7 +13,7 @@ from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from optUtils.pytorchModel import DeepLearningClassifier, DeepLearningRegressor, AutoEncoder, SupervisedAutoEncoder, \
     VariationalAutoEncoder, SupervisedVariationalAutoEncoder
 
-model_dict = {
+__model_dict = {
     'knn_clf': KNeighborsClassifier,
     'knn_reg': KNeighborsRegressor,
     'svm_clf': SVC,
@@ -35,11 +35,11 @@ model_dict = {
 
 # 选择模型
 def model_selection(model_name, **params):
-    model = model_dict[model_name](**params)
+    model = __model_dict[model_name](**params)
     return model
 
 # 注册模型
 def model_registration(**model):
     if type(model) != dict:
         print("请输入dict类型...")
-    model_dict.update(model)
+    __model_dict.update(model)

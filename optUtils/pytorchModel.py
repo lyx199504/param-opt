@@ -44,12 +44,19 @@ class PytorchModel(nn.Module, BaseEstimator):
         self.metrics = None
         self.metrics_list = []  # 多个评价指标
 
-    # numpy => tensor
+    # numpy or list => tensor
     def to_tensor(self, data):
-        if type(data) == torch.Tensor:
+        if type(data) == torch.Tensor or type(data) == list and type(data[0]) == torch.Tensor:
             return data
-        dataType = torch.float32 if 'float' in str(data.dtype) else torch.int64
-        return torch.tensor(data, dtype=dataType)
+        if type(data) == list:
+            tensor_data = []
+            for sub_data in data:
+                dataType = torch.float32 if 'float' in str(sub_data.dtype) else torch.int64
+                tensor_data.append(torch.tensor(sub_data, dtype=dataType))
+        else:
+            dataType = torch.float32 if 'float' in str(data.dtype) else torch.int64
+            tensor_data = torch.tensor(data, dtype=dataType)
+        return tensor_data
 
     # 训练
     def fit(self, X, y, X_val=None, y_val=None):
@@ -134,9 +141,12 @@ class PytorchModel(nn.Module, BaseEstimator):
         self.train() if train else self.eval()
 
         total_loss, y_hat = 0, []
-        indexList = range(0, X.shape[0], self.batch_size)
+        indexList = range(0, len(X[0]) if type(X) == list else len(X), self.batch_size)
         for i in indexList:
-            X_batch = X[i:i + self.batch_size].to(self.device)
+            if type(X) == list:
+                X_batch = [x[i: i + self.batch_size].to(self.device) for x in X]
+            else:
+                X_batch = X[i: i + self.batch_size].to(self.device)
             y_batch = None if y is None else y[i:i + self.batch_size].to(self.device)
             output = self.forward(X_batch)
 
@@ -161,8 +171,11 @@ class PytorchModel(nn.Module, BaseEstimator):
         self.to(self.device)
         X = self.to_tensor(X)
         y_hat = []
-        for i in range(0, X.shape[0], batch_size):
-            X_batch = X[i:i + batch_size].to(self.device)
+        for i in range(0, len(X[0]) if type(X) == list else len(X), batch_size):
+            if type(X) == list:
+                X_batch = [x[i: i + batch_size].to(self.device) for x in X]
+            else:
+                X_batch = X[i:i + batch_size].to(self.device)
             output = self.forward(X_batch)
             if output_all_value:
                 output_list = output if type(output) == tuple else [output]

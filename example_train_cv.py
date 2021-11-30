@@ -16,9 +16,9 @@ if __name__ == "__main__":
     """
     本文件是使用模型进行N折交叉验证的demo
     """
+    fold, seed = yaml_config['cv_param']['fold'], yaml_config['cus_param']['seed']
     # 使用鸢尾花数据集
     X, y = load_iris()['data'], load_iris()['target']
-    fold, seed = yaml_config['cv_param']['fold'], yaml_config['cus_param']['seed']
     # 数据按折数分层排列
     X, y = stratified_shuffle_split(X, y, n_splits=fold, random_state=seed)
 

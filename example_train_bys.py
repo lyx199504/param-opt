@@ -16,9 +16,9 @@ if __name__ == "__main__":
     """
     本文件是使用贝叶斯搜索寻找模型参数的demo
     """
+    n_splits, seed = yaml_config['bys_param']['fold'], yaml_config['cus_param']['seed']
     # 使用鸢尾花数据集
     X, y = load_iris()['data'], load_iris()['target']
-    n_splits, seed = yaml_config['bys_param']['fold'], yaml_config['cus_param']['seed']
     # 数据按折数分层排列
     X, y = stratified_shuffle_split(X, y, n_splits=n_splits, random_state=seed)
 
