@@ -7,7 +7,7 @@ from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_sc
 
 from example_dl_model import FusionClassifier
 from optUtils import yaml_config
-from optUtils.dataUtil import stratified_shuffle_split
+from optUtils.dataUtil import stratified_shuffle_samples
 from optUtils.metricsUtil import f1_micro_score, f1_macro_score
 from optUtils.pytorchModel import DeepLearningClassifier, DeepLearningRegressor, SupervisedAutoEncoder
 
@@ -19,7 +19,7 @@ if __name__ == "__main__":
     # 使用鸢尾花数据集
     X, y = load_iris()['data'], load_iris()['target']
     # 数据按折数分层排列
-    X, y = stratified_shuffle_split(X, y, n_splits=fold, random_state=seed)
+    X, y = stratified_shuffle_samples(X, y, n_splits=fold, random_state=seed)
     train_point = int(len(X) / fold)
 
     # 分类器训练演示
@@ -52,8 +52,8 @@ if __name__ == "__main__":
     # 使用手写数字数据集
     X, y = load_digits()['data'], load_digits()['target']
     # 数据按折数分层排列
-    X, y = stratified_shuffle_split(X, y, n_splits=fold, random_state=seed)
     X = [X, X.reshape(-1, 8, 8)]  # 融合一维数据和二维数据
+    X, y = stratified_shuffle_samples(X, y, n_splits=fold, random_state=seed)
     train_point = int(len(X) / fold) if type(X) != list else int(len(X[0]) / fold)
 
     # 融合分类器训练演示

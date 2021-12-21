@@ -7,7 +7,7 @@ from sklearn.metrics import accuracy_score
 
 from example_dl_model import RNNClassifier
 from optUtils import yaml_config
-from optUtils.dataUtil import stratified_shuffle_split
+from optUtils.dataUtil import stratified_shuffle_samples
 from optUtils.metricsUtil import f1_micro_score, f1_macro_score, f1_weighted_score
 from optUtils.modelUtil import model_registration
 from optUtils.trainUtil import cv_train
@@ -20,7 +20,7 @@ if __name__ == "__main__":
     # 使用鸢尾花数据集
     X, y = load_iris()['data'], load_iris()['target']
     # 数据按折数分层排列
-    X, y = stratified_shuffle_split(X, y, n_splits=fold, random_state=seed)
+    X, y = stratified_shuffle_samples(X, y, n_splits=fold, random_state=seed)
 
     # 注册自己构造的模型
     model_registration(

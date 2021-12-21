@@ -8,8 +8,8 @@ import numpy as np
 from optUtils import set_seed
 
 
-# 数据分层随机排列
-def stratified_shuffle_split(X, y, n_splits, random_state=0):
+# 分层打乱下标
+def stratified_shuffle_index(y, n_splits, random_state=0):
     if random_state:
         set_seed(random_state)
     # 按标签取出样本，再打乱样本下标
@@ -31,4 +31,11 @@ def stratified_shuffle_split(X, y, n_splits, random_state=0):
         np.random.shuffle(indexList_n)
         indexList.append(indexList_n)
     indexList = np.hstack(indexList)
-    return X[indexList], y[indexList]
+    return indexList
+
+# 分层打乱样本
+def stratified_shuffle_samples(X, y, n_splits, random_state=0):
+    indexList = stratified_shuffle_index(y, n_splits, random_state)
+    X = [x[indexList] for x in X] if type(X) == list else X[indexList]
+    y = y[indexList]
+    return X, y

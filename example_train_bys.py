@@ -7,7 +7,7 @@ from sklearn.datasets import load_iris
 
 from example_dl_model import RNNClassifier
 from optUtils import yaml_config
-from optUtils.dataUtil import stratified_shuffle_split
+from optUtils.dataUtil import stratified_shuffle_samples
 from optUtils.logUtil import get_best_param
 from optUtils.modelUtil import model_selection, model_registration
 from optUtils.trainUtil import bayes_search_train
@@ -20,7 +20,7 @@ if __name__ == "__main__":
     # 使用鸢尾花数据集
     X, y = load_iris()['data'], load_iris()['target']
     # 数据按折数分层排列
-    X, y = stratified_shuffle_split(X, y, n_splits=n_splits, random_state=seed)
+    X, y = stratified_shuffle_samples(X, y, n_splits=n_splits, random_state=seed)
 
     # 注册自己构造的模型
     model_registration(
