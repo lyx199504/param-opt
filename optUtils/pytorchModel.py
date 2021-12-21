@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 # @Time : 2021/6/4 19:08
 # @Author : LYX-夜光
+import sys
 import time
 
 import joblib
@@ -12,6 +13,7 @@ import torch.nn.functional as F
 
 from sklearn.base import BaseEstimator
 from sklearn.metrics import accuracy_score, mean_squared_error
+from tqdm import tqdm, trange
 
 from optUtils import set_seed, make_dir, yaml_config
 from optUtils.logUtil import logging_config
@@ -32,6 +34,7 @@ class PytorchModel(nn.Module, BaseEstimator):
         self.model_name = "base_dl"
         self.param_search = True  # 默认开启搜索参数功能
         self.save_model = False  # 常规训练中，默认关闭保存模型功能
+        self.only_save_last_epoch = False  # 常规训练只保存最后一个epoch
 
         self.learning_rate = learning_rate
         self.epochs = epochs
@@ -73,16 +76,14 @@ class PytorchModel(nn.Module, BaseEstimator):
             X_val, y_val = self.to_tensor(X_val), self.to_tensor(y_val)
 
         # 训练每个epoch
-        for epoch in range(self.epochs):
-            start_time = time.time()
-
+        pbar = tqdm(range(self.epochs), file=sys.stdout, desc=self.model_name)
+        for epoch in pbar:
             self.to(self.device)
             train_loss, train_score, train_score_list = self.fit_epoch(X, y, train=True)
             train_score_dict = {self.metrics.__name__: train_score}
             for i, metrics in enumerate(self.metrics_list):
                 train_score_dict.update({metrics.__name__: train_score_list[i]})
-            massage = "epoch: %d/%d - train_loss: %.6f - train_score: %.6f" % (
-                epoch + 1, self.epochs, train_loss, train_score)
+            massage_dict = {"train_loss": "%.6f" % train_loss, "train_score": "%.6f" % train_score}
 
             # 有输入验证集，则计算val_loss和val_score等
             val_score, val_score_dict = 0, {}
@@ -91,39 +92,39 @@ class PytorchModel(nn.Module, BaseEstimator):
                 val_score_dict = {self.metrics.__name__: val_score}
                 for i, metrics in enumerate(self.metrics_list):
                     val_score_dict.update({metrics.__name__: val_score_list[i]})
-                massage += " - val_loss: %.6f - val_score: %.6f" % (val_loss, val_score)
+                massage_dict.update({"val_loss": "%.6f" % val_loss, "val_score": "%.6f" % val_score})
 
-            run_time = time.time() - start_time
-            print(massage + " - time: %ds" % int(run_time))
+            pbar.set_postfix(massage_dict)
 
             # 不进行超参数搜索，则存储每个epoch的模型和日志
             if not self.param_search:
-                # 存储模型
-                model_path = None
-                if self.save_model:
-                    model_dir = yaml_config['dir']['model_dir']
-                    make_dir(model_dir)
-                    model_path = model_dir + '/%s-%03d-%s.model' % (self.model_name, epoch + 1, int(time.time()))
-                    # 存储模型时，model及其属性device必须保持相同cpu
-                    device = self.device
-                    self.device = 'cpu'
-                    self.to(self.device)
-                    joblib.dump(self, model_path)
-                    self.device = device
-                    self.to(self.device)
-                # 存储日志
-                log_dir = yaml_config['dir']['log_dir']
-                make_dir(log_dir)
-                logger = logging_config(self.model_name, log_dir + '/%s.log' % self.model_name)
-                logger.info({
-                    "epoch": epoch + 1,
-                    "best_param_": self.get_params(),
-                    "best_score_": val_score,
-                    "train_score": train_score,
-                    "train_score_dict": train_score_dict,
-                    "val_score_dict": val_score_dict,
-                    "model_path": model_path,
-                })
+                if not self.only_save_last_epoch or self.only_save_last_epoch and epoch + 1 == self.epochs:
+                    # 存储模型
+                    model_path = None
+                    if self.save_model:
+                        model_dir = yaml_config['dir']['model_dir']
+                        make_dir(model_dir)
+                        model_path = model_dir + '/%s-%03d-%s.model' % (self.model_name, epoch + 1, int(time.time()))
+                        # 存储模型时，model及其属性device必须保持相同cpu
+                        device = self.device
+                        self.device = 'cpu'
+                        self.to(self.device)
+                        joblib.dump(self, model_path)
+                        self.device = device
+                        self.to(self.device)
+                    # 存储日志
+                    log_dir = yaml_config['dir']['log_dir']
+                    make_dir(log_dir)
+                    logger = logging_config(self.model_name, log_dir + '/%s.log' % self.model_name)
+                    logger.info({
+                        "epoch": epoch + 1,
+                        "best_param_": self.get_params(),
+                        "best_score_": val_score,
+                        "train_score": train_score,
+                        "train_score_dict": train_score_dict,
+                        "val_score_dict": val_score_dict,
+                        "model_path": model_path,
+                    })
 
     # 每轮拟合
     def fit_epoch(self, X, y, train):

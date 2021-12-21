@@ -11,12 +11,12 @@ cus_param:
 bys_param:
   n_iter: 10  # 迭代次数
   fold: 3  # 交叉验证折数
-  workers: 3  # 进程个数
+  workers: 1  # 进程个数
 
 # 交叉验证参数
 cv_param:
   fold: 10
-  workers: 2
+  workers: 1
 
 # 模型超参数
 model:

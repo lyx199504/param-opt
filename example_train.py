@@ -26,6 +26,7 @@ if __name__ == "__main__":
     model = DeepLearningClassifier(learning_rate=0.01, epochs=100, batch_size=150, random_state=seed)
     model.model_name += '_common'  # 修改模型名称
     model.param_search = False  # 常规训练时将搜索参数模式关闭
+    model.only_save_last_epoch = True  # 常规训练时，可开启仅保存最后一个epoch的功能
     # model.save_model = True  # 常规训练时，可开启保存模型功能
     model.metrics_list = [f1_micro_score, f1_macro_score]  # 添加多个评价指标
     model.fit(X[train_point:], y[train_point:], X[:train_point], y[:train_point])
@@ -34,6 +35,7 @@ if __name__ == "__main__":
     model = DeepLearningRegressor(learning_rate=0.01, epochs=100, batch_size=150, random_state=seed)
     model.model_name += '_common'
     model.param_search = False
+    model.only_save_last_epoch = True
     y_ = y/2  # 修改标签
     model.fit(X[train_point:], y_[train_point:], X[:train_point], y_[:train_point])
 
@@ -41,6 +43,7 @@ if __name__ == "__main__":
     model = SupervisedAutoEncoder(learning_rate=0.03, epochs=100, batch_size=150, random_state=seed)
     model.model_name += '_common'
     model.param_search = False
+    model.only_save_last_epoch = True
     y[y == 2] = 1  # 把第2类转为第1类，变成二分类
     model.metrics = roc_auc_score  # 主评价指标
     model.metrics_list = [f1_score, accuracy_score, precision_score, recall_score]  # 添加多个评价指标
@@ -57,5 +60,6 @@ if __name__ == "__main__":
     model = FusionClassifier(learning_rate=0.005, epochs=100, batch_size=200, random_state=seed)
     model.model_name += '_common'
     model.param_search = False
+    model.only_save_last_epoch = True
     model.metrics_list = [f1_micro_score, f1_macro_score]  # 添加多个评价指标
     model.fit([x[train_point:] for x in X], y[train_point:], [x[:train_point] for x in X], y[:train_point])

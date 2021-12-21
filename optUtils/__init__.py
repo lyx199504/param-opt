@@ -7,10 +7,11 @@ import codecs
 import json
 import os
 import random
-
 import yaml
-
 import numpy as np
+
+import warnings
+warnings.filterwarnings("ignore")
 
 
 # 创建文件夹
