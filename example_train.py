@@ -10,6 +10,7 @@ from optUtils import yaml_config
 from optUtils.dataUtil import stratified_shuffle_samples
 from optUtils.metricsUtil import f1_micro_score, f1_macro_score
 from optUtils.pytorchModel import DeepLearningClassifier, DeepLearningRegressor, SupervisedAutoEncoder
+from optUtils.trainUtil import ml_train
 
 if __name__ == "__main__":
     """
@@ -22,18 +23,24 @@ if __name__ == "__main__":
     X, y = stratified_shuffle_samples(X, y, n_splits=fold, random_state=seed)
     train_point = int(len(X) / fold)
 
-    # 分类器训练演示
+    # 机器学习训练演示
+    model_name_list = ['lr_clf', 'svm_clf', 'rf_clf']
+    metrics_list = [f1_micro_score, f1_macro_score]  # 添加多个评价指标
+    for model_name in model_name_list:
+        model_param = {'random_state': seed}
+        # 机器学习常规训练
+        ml_train(X[train_point:], y[train_point:], X[:train_point], y[:train_point], model_name, model_param, metrics_list)
+
+    # 深度学习分类器训练演示
     model = DeepLearningClassifier(learning_rate=0.01, epochs=100, batch_size=150, random_state=seed)
-    model.model_name += '_common'  # 修改模型名称
     model.param_search = False  # 常规训练时将搜索参数模式关闭
     model.only_save_last_epoch = True  # 常规训练时，可开启仅保存最后一个epoch的功能
     # model.save_model = True  # 常规训练时，可开启保存模型功能
     model.metrics_list = [f1_micro_score, f1_macro_score]  # 添加多个评价指标
     model.fit(X[train_point:], y[train_point:], X[:train_point], y[:train_point])
 
-    # 回归器训练演示
+    # 深度学习回归器训练演示
     model = DeepLearningRegressor(learning_rate=0.01, epochs=100, batch_size=150, random_state=seed)
-    model.model_name += '_common'
     model.param_search = False
     model.only_save_last_epoch = True
     y_ = y/2  # 修改标签
@@ -41,7 +48,6 @@ if __name__ == "__main__":
 
     # 监督自编码器训练演示
     model = SupervisedAutoEncoder(learning_rate=0.03, epochs=100, batch_size=150, random_state=seed)
-    model.model_name += '_common'
     model.param_search = False
     model.only_save_last_epoch = True
     y[y == 2] = 1  # 把第2类转为第1类，变成二分类
@@ -58,7 +64,6 @@ if __name__ == "__main__":
 
     # 融合分类器训练演示
     model = FusionClassifier(learning_rate=0.005, epochs=100, batch_size=200, random_state=seed)
-    model.model_name += '_common'
     model.param_search = False
     model.only_save_last_epoch = True
     model.metrics_list = [f1_micro_score, f1_macro_score]  # 添加多个评价指标

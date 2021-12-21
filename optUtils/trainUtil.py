@@ -15,19 +15,79 @@ from optUtils import make_dir, yaml_config
 from optUtils.logUtil import logging_config
 from optUtils.modelUtil import model_selection
 
+
+# 机器学习常规训练
+def ml_train(X, y, X_test, y_test, model_name, model_param={}, metrics_list=(), model=None):
+    """
+    :param X: 训练集的特征
+    :param y: 训练集的标签
+    :param X_test: 测试集的特征
+    :param y_test: 测试集的标签
+    :param model_name: 模型名称
+    :param model_param: 模型参数，可缺省
+    :param metrics_list: 多个评价指标，可缺省，默认使用模型自带的评价指标
+    :return:
+    """
+
+    log_dir = yaml_config['dir']['log_dir']
+    cus_param = yaml_config['cus_param']
+
+    if model is None:
+        model = model_selection(model_name, **model_param)
+
+    model.fit(X, y)
+
+    # 获取评价指标
+    def get_score(mdl, X, y):
+        score_list = []
+        if metrics_list:
+            y_pred = mdl.predict(X)
+            for metrics in metrics_list:
+                score_list.append(metrics(y, y_pred))
+            return score_list
+        score_list.append(mdl.score(X, y))
+        return score_list
+
+    start_time = time.time()
+
+    train_score_list = get_score(model, X, y)
+    train_score_dict = {metrics.__name__: train_score for metrics, train_score in zip(metrics_list, train_score_list)}
+
+    test_score_list = get_score(model, X_test, y_test)
+    test_score_dict = {metrics.__name__: val_score for metrics, val_score in zip(metrics_list, test_score_list)}
+
+    run_time = int(time.time() - start_time)
+
+    print("model: %s - train score: %.6f - test score: %.6f - time: %ds" % (
+        model_name, train_score_list[0], test_score_list[0], run_time))
+
+    # 配置日志文件
+    make_dir(log_dir)
+    logger = logging_config(model_name, log_dir + '/%s.log' % model_name)
+    log_message = {
+        "cus_param": cus_param,
+        "best_param_": model_param,
+        "best_score_": test_score_list[0],
+        "train_score": train_score_list[0],
+        "train_score_dict": train_score_dict,
+        "test_score_dict": test_score_dict,
+    }
+    logger.info(log_message)
+
+
 # 交叉验证
-def cv_train(X, y, model_name, model_param={}, metrics_list=[], model=None):
+def cv_train(X, y, model_name, model_param={}, metrics_list=(), model=None):
     """
     :param X: 训练集的特征
     :param y: 训练集的标签
     :param model_name: 模型名称
     :param model_param: 模型参数，可缺省
-    :param metrics_list: 多个评价指标，可缺省，默认使用模型分数
+    :param metrics_list: 多个评价指标，可缺省，默认使用模型自带的评价指标
     :param model: 机器学习或深度学习模型，可缺省，默认根据模型名称获取模型
     :return:
     """
 
-    model_dir, log_dir = yaml_config['dir']['model_dir'], yaml_config['dir']['log_dir']
+    log_dir = yaml_config['dir']['log_dir']
     cus_param, cv_param = yaml_config['cus_param'], yaml_config['cv_param']
 
     if model is None:
@@ -80,8 +140,8 @@ def cv_train(X, y, model_name, model_param={}, metrics_list=[], model=None):
         "best_param_": model_param,
         "best_score_": val_score_list[0],
         "train_score": train_score_list[0],
-        "train_score_list": train_score_dict,
-        "val_score_list": val_score_dict,
+        "train_score_dict": train_score_dict,
+        "val_score_dict": val_score_dict,
     }
     logger.info(log_message)
 
