@@ -13,9 +13,9 @@ import torch.nn.functional as F
 
 from sklearn.base import BaseEstimator
 from sklearn.metrics import accuracy_score, mean_squared_error
-from tqdm import tqdm, trange
+from tqdm import tqdm
 
-from optUtils import set_seed, make_dir, yaml_config
+from optUtils import set_seed, make_dirs, yaml_config
 from optUtils.logUtil import logging_config
 
 # pytorch随机种子
@@ -103,7 +103,7 @@ class PytorchModel(nn.Module, BaseEstimator):
                     model_path = None
                     if self.save_model:
                         model_dir = yaml_config['dir']['model_dir']
-                        make_dir(model_dir)
+                        make_dirs(model_dir)
                         model_path = model_dir + '/%s-%03d-%s.model' % (self.model_name, epoch + 1, int(time.time()))
                         # 存储模型时，model及其属性device必须保持相同cpu
                         device = self.device
@@ -114,7 +114,7 @@ class PytorchModel(nn.Module, BaseEstimator):
                         self.to(self.device)
                     # 存储日志
                     log_dir = yaml_config['dir']['log_dir']
-                    make_dir(log_dir)
+                    make_dirs(log_dir)
                     logger = logging_config(self.model_name, log_dir + '/%s.log' % self.model_name)
                     logger.info({
                         "epoch": epoch + 1,

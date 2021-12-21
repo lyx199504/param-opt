@@ -11,7 +11,7 @@ from joblib import Parallel, delayed
 from sklearn.model_selection import KFold
 from skopt import BayesSearchCV
 
-from optUtils import make_dir, yaml_config
+from optUtils import make_dirs, yaml_config
 from optUtils.logUtil import logging_config
 from optUtils.modelUtil import model_selection
 
@@ -62,7 +62,7 @@ def ml_train(X, y, X_test, y_test, model_name, model_param={}, metrics_list=(), 
         model_name, train_score_list[0], test_score_list[0], run_time))
 
     # 配置日志文件
-    make_dir(log_dir)
+    make_dirs(log_dir)
     logger = logging_config(model_name, log_dir + '/%s.log' % model_name)
     log_message = {
         "cus_param": cus_param,
@@ -132,7 +132,7 @@ def cv_train(X, y, model_name, model_param={}, metrics_list=(), model=None):
     val_score_dict = {metrics.__name__: val_score for metrics, val_score in zip(metrics_list, val_score_list)}
 
     # 配置日志文件
-    make_dir(log_dir)
+    make_dirs(log_dir)
     logger = logging_config(model_name, log_dir + '/%s.log' % model_name)
     log_message = {
         "cus_param": cus_param,
@@ -178,7 +178,7 @@ def bayes_search_train(X, y, model_name, model_param, model=None, X_test=None, y
 
     bys.fit(X, y)
 
-    make_dir(model_dir)
+    make_dirs(model_dir)
     model_path = model_dir + '/%s-%s.model' % (model_name, int(time.time()))
     if 'device' in bys.best_estimator_.get_params():
         bys.best_estimator_.cpu()
@@ -187,7 +187,7 @@ def bayes_search_train(X, y, model_name, model_param, model=None, X_test=None, y
     joblib.dump(model, model_path)
 
     # 配置日志文件
-    make_dir(log_dir)
+    make_dirs(log_dir)
     logger = logging_config(model_name, log_dir + '/%s.log' % model_name)
     log_message = {
         "cus_param": cus_param,

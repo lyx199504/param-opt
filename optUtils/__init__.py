@@ -15,9 +15,9 @@ warnings.filterwarnings("ignore")
 
 
 # 创建文件夹
-def make_dir(path):
+def make_dirs(path):
     if not os.path.isdir(path):
-        os.mkdir(path)
+        os.makedirs(path)
 
 # 设置随机种子
 def set_seed(seed):
