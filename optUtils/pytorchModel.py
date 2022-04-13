@@ -86,7 +86,7 @@ class PytorchModel(nn.Module, BaseEstimator):
             massage_dict = {"train_loss": "%.6f" % train_loss, "train_score": "%.6f" % train_score}
 
             # 有输入验证集，则计算val_loss和val_score等
-            val_score, val_score_dict = 0, {}
+            val_loss, val_score, val_score_dict = 0, 0, {}
             if not self.param_search and X_val is not None and y_val is not None:
                 val_loss, val_score, val_score_list = self.fit_epoch(X_val, y_val, train=False)
                 val_score_dict = {self.metrics.__name__: val_score}
@@ -119,8 +119,10 @@ class PytorchModel(nn.Module, BaseEstimator):
                     logger.info({
                         "epoch": epoch + 1,
                         "best_param_": self.get_params(),
-                        "best_score_": val_score,
+                        "train_loss": train_loss,
+                        "val_loss": val_loss,
                         "train_score": train_score,
+                        "best_score_": val_score,
                         "train_score_dict": train_score_dict,
                         "val_score_dict": val_score_dict,
                         "model_path": model_path,
@@ -201,7 +203,7 @@ class DeepLearningClassifier(PytorchModel):
         super().__init__(learning_rate, epochs, batch_size, random_state, device)
         self.model_name = "dl_clf"
         self._estimator_type = "classifier"
-        self.label_num = 2  # 默认二分类
+        self.label_num = 0
 
         self.metrics = accuracy_score
 
@@ -224,7 +226,7 @@ class DeepLearningClassifier(PytorchModel):
         return y
 
     def fit(self, X, y, X_val=None, y_val=None):
-        self.label_num = len(set(y))
+        self.label_num = len(set(y)) if self.label_num == 0 else self.label_num
         super().fit(X, y, X_val, y_val)
 
     # 预测分类概率
