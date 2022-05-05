@@ -21,7 +21,7 @@ This project is a training tool for machine learning and deep learning. Based on
 
 <h3 id="project-file">项目文件 Project Files</h3>
 
-├─ optUtils (工具目录 Tools catalog) <br>
+├─ optUtils (工具目录 Tools directory) <br>
 &emsp;├─ \_\_init\_\_.py (读写文件模块 Reading and writing files module) <br>
 &emsp;├─ dataUtil.py (数据模块 Data module) <br>
 &emsp;├─ logUtil.py (日志模块 Log module) <br>
@@ -69,8 +69,8 @@ Refer to example_train.py.
 Machine learning regular training:<br>
 步骤一：自行将待训练的数据封装为numpy.ndarray类型，同时可采用dataUtil.py中的分层打乱数据函数将数据打乱，并将数据切分为训练集和测试集；<br>
 Step 1: Encapsulate the data to be trained as numpy.ndarray type, and use the layered data shuffling function in dataUtil.py to shuffle the data, and divide the data into training sets and test sets;<br>
-步骤二：将切分好的数据、模型名称、模型参数和评价指标列表填入trainUtil.py中的ml_train函数，即可训练数据。<br>
-Step 2: Fill in the segmented data, model name, model parameters and evaluation metrics list into the ml_train function in trainUtil.py to train the data.
+步骤二：将切分好的数据、模型名称、模型参数和评价指标列表填入trainUtil.py中的ml_train函数，即可训练模型。<br>
+Step 2: Fill in the segmented data, model name, model parameters and evaluation metrics list into the ml_train function in trainUtil.py to train the model.
 > 其中模型名称可在modelUtil.py中的__model_dict字典查阅，评价指标可直接采用sklearn中的评价指标，或在metricsUtil.py中查阅。若要使用的模型不在字典中，可自行构建模型并填入ml_train函数中的model参数；若需要创建新的评价指标，可自行添加。<br>
 > The model name can be viewed in the __model_dict dictionary in modelUtil.py, and the evaluation metrics can be directly used in sklearn, or in metricsUtil.py. If the model to be used is not in the dictionary, you can build the model yourself and fill in the model parameter in the ml_train function; if you need to create a new evaluation metric, you can add it yourself.
 
@@ -78,8 +78,8 @@ Step 2: Fill in the segmented data, model name, model parameters and evaluation 
 Deep learning regular training:<br>
 步骤一：与机器学习常规训练相同；<br>
 Step 1: The same as the regular training of machine learning;<br>
-步骤二：查找pytorchModel.py中的模型或自行构造模型（参考example_dl_model.py），然后填入超参数、训练数据和评价指标即可训练数据。有必要提及的一些功能如下：<br>
-Step 2: Find the model in pytorchModel.py or construct your own model (refer to example_dl_model.py), and then fill in the hyperparameters, training data and evaluation indicators to train the data. Some features that are worth mentioning are as follows:<br>
+步骤二：查找pytorchModel.py中的模型或自行构造模型（参考example_dl_model.py），然后填入超参数、数据和评价指标即可训练模型。有必要提及的一些功能如下：<br>
+Step 2: Find the model in pytorchModel.py or construct your own model (refer to example_dl_model.py), and then fill in the hyperparameters, data and evaluation indicators to train the model. Some features that are worth mentioning are as follows:<br>
     
     model.param_search = False 
     # 参数搜索开关，不使用参数搜索时需要关闭 
@@ -130,7 +130,7 @@ During training, replace the cv_train function with the bayes_search_train funct
 
 另外，需要在param.yaml配置文件设定迭代次数、训练折数、进程个数、以及每个模型的参数搜索范围，代码如下：
 
-    cv_param:
+    bys_param:
       n_iter: 10  # 迭代次数，即采用多少个参数组合训练 The number of iterations, that is, how many parameter combinations are used for training
       fold: 3  
       workers: 1 
@@ -168,7 +168,8 @@ When you disclose the code based on this project, you must indicate the original
 <h2 id="links">友情链接 Related Links</h2>
 
 1. [点击欺诈CAT-RFE集成学习框架](https://github.com/lyx199504/click-fraud-cat-rfe)
+2. [多尺度C-LSTM时间序列异常检测模型](https://github.com/lyx199504/mc-lstm-time-series)
 
 <h2 id="license">许可证 License</h2>
 
-[MIT](LICENSE) (c) 2022 Yixiang Lu - 夜光
+[MIT](LICENSE) © 2022 Yixiang Lu - 夜光
