@@ -67,6 +67,7 @@ class PytorchModel(nn.Module, BaseEstimator):
         pytorch_set_seed(self.random_state)
         # 构建模型
         self.create_model()
+        self.to(self.device)
         # 初始化优化器
         self.optimizer = self.optim(params=self.parameters(), lr=self.learning_rate)
         # 初始化训练集
@@ -78,7 +79,6 @@ class PytorchModel(nn.Module, BaseEstimator):
         # 训练每个epoch
         pbar = tqdm(range(self.epochs), file=sys.stdout, desc=self.model_name)
         for epoch in pbar:
-            self.to(self.device)
             train_loss, train_score, train_score_list = self.fit_epoch(X, y, train=True)
             train_score_dict = {self.metrics.__name__: train_score}
             for i, metrics in enumerate(self.metrics_list):
@@ -454,7 +454,7 @@ class VariationalAutoEncoder(AutoEncoder):
     # 重构Z层：均值+随机采样*标准差
     def reparameterize(self, mu, log_sigma):
         std = torch.exp(log_sigma * 0.5)
-        esp = torch.randn(std.size())
+        esp = torch.randn(std.size(), device=self.device)
         z = mu + esp * std
         return z
 

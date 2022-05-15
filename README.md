@@ -4,7 +4,7 @@ This project is a training tool for machine learning and deep learning. Based on
 
 ## 目录 Table of Contents
 
-- [项目结构 Project structure](#project)
+- [项目结构 Project Structure](#project)
   - [项目文件 Project Files](#project-file)
   - [附加文件 Additional Files](#additional-file)
 - [使用方法 Getting Started](#get-start)
@@ -17,7 +17,7 @@ This project is a training tool for machine learning and deep learning. Based on
 - [友情链接 Related Links](#links)
 - [许可证 License](#license)
 
-<h2 id="project">项目结构 Project structure</h2>
+<h2 id="project">项目结构 Project Structure</h2>
 
 <h3 id="project-file">项目文件 Project Files</h3>
 
@@ -81,18 +81,18 @@ Step 1: The same as the regular training of machine learning;<br>
 步骤二：查找pytorchModel.py中的模型或自行构造模型（参考example_dl_model.py），然后填入超参数、数据和评价指标即可训练模型。有必要提及的一些功能如下：<br>
 Step 2: Find the model in pytorchModel.py or construct your own model (refer to example_dl_model.py), and then fill in the hyperparameters, data and evaluation indicators to train the model. Some features that are worth mentioning are as follows:<br>
     
-    model.param_search = False 
-    # 参数搜索开关，不使用参数搜索时需要关闭 
-    # Parameter search switch, it needs to be turned off when parameter search is not used
-    model.only_save_last_epoch = True
-    # 若关闭则每个epoch会生成一行日志和一个训练模型，开启则只生成最后一个epoch的日志和训练模型 
-    # If it is turned off, each epoch will generate a log and a training model. If it is turned on, only the log and training model of the last epoch will be generated.
-    model.save_model = True
-    # 保存训练模型开关，开启则会保存训练模型
-    # Save the training model switch, if enabled, the training model will be saved.
-    model.device = 'cuda'
-    # device设置为“cuda”，则启用GPU训练模型，不设置则默认采用CPU训练
-    # device is set to "cuda", the GPU training model is enabled, if not set, the CPU training is used by default.
+    model.param_search = True 
+    # 参数搜索开关，默认开启，不使用参数搜索时需要关闭 
+    # Parameter search switch, enabled by default, needs to be disabled during regular training.
+    model.save_model = False
+    # 保存训练模型的开关，开启则会保存每个epoch的训练模型和日志，默认关闭
+    # The switch to save the training model, if turned on, the training model and log of each epoch will be saved, and it is turned off by default.
+    model.only_save_last_epoch = False
+    # 保存最后epoch的开关，开启则仅保存最后一个epoch的训练模型和日志，默认关闭
+    # The switch to save the last epoch, if enabled, only the training model and log of the last epoch will be saved, and it is disabled by default.
+    model.device = 'cuda:0'
+    # device设置为“cuda:0”，则启用第0个GPU训练模型，不设置则默认采用CPU训练
+    # If device is set to "cuda:0", the 0th GPU training model will be enabled. If not set, the CPU training will be used by default.
 
 <h4 id="cv-train">交叉验证训练 Cross-validation Training</h4>
 
@@ -119,7 +119,7 @@ The cross-validation training steps are similar to regular training, except that
 
 <h4 id="bys-train">贝叶斯搜索训练 Bayesian Search Training</h4>
 
-example_train_bys.py。<br>
+参考example_train_bys.py。<br>
 Refer to example_train_bys.py.
 
 贝叶斯搜索在训练之前的步骤与交叉验证训练相同，同样需要注册自己构建的新模型（若有新模型的话）。<br>
@@ -163,7 +163,7 @@ The word version is quoted as follows:
 When you disclose the code based on this project, you must indicate the original project author and source:<br>
 
     Author: Yixiang Lu
-    Project: https://github.com/lyx199504/param-opt
+    Project: [param-opt](https://github.com/lyx199504/param-opt)
 
 <h2 id="links">友情链接 Related Links</h2>
 
