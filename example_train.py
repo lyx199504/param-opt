@@ -32,10 +32,13 @@ if __name__ == "__main__":
         ml_train(X[train_point:], y[train_point:], X[:train_point], y[:train_point], model_name, model_param, metrics_list)
 
     # 深度学习分类器训练演示
-    model = DeepLearningClassifier(learning_rate=0.01, epochs=100, batch_size=150, random_state=seed)
+    model = DeepLearningClassifier(learning_rate=0.01, epochs=200, batch_size=150, random_state=seed)
     model.param_search = False  # 常规训练时将搜索参数模式关闭
-    model.only_save_last_epoch = True  # 常规训练时，可开启仅保存最后一个epoch的功能
+    # model.device = 'cuda'  # 使用GPU训练，默认使用CPU训练
     # model.save_model = True  # 常规训练时，可开启保存模型功能
+    model.only_save_last_epoch = True  # 常规训练时，可开启仅保存最后一个epoch的功能
+    model.early_stop = 50  # 早停机制，连续50轮训练的分数没提升，则停止训练
+    model.shuffle_every_epoch = True  # 将每一个epoch的数据进行打乱
     model.metrics_list = [f1_micro_score, f1_macro_score]  # 添加多个评价指标
     model.fit(X[train_point:], y[train_point:], X[:train_point], y[:train_point])
 
