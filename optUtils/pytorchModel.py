@@ -36,7 +36,6 @@ class PytorchModel(nn.Module, BaseEstimator):
         self.save_model = False  # 保存训练模型，默认关闭
         self.only_save_last_epoch = False  # 只保存最后一轮的结果，默认关闭
         self.shuffle_every_epoch = False  # 将每轮训练的数据进行打乱，默认关闭
-        self.early_stop = 0  # 早停机制，连续训练early_stop轮的验证分数没提升，则停止训练，小于等于0表示不早停
 
         self.learning_rate = learning_rate
         self.epochs = epochs
@@ -78,7 +77,6 @@ class PytorchModel(nn.Module, BaseEstimator):
         if not self.param_search and X_val is not None and y_val is not None:
             X_val, y_val = self.to_tensor(X_val), self.to_tensor(y_val)
 
-        best_score, count_stop = 0, 1  # 早停机制，最高分数和停止计数
         # 训练每个epoch
         pbar = tqdm(range(self.epochs), file=sys.stdout, desc=self.model_name)
         for epoch in pbar:
@@ -101,15 +99,11 @@ class PytorchModel(nn.Module, BaseEstimator):
                     val_score_dict.update({metrics.__name__: val_score_list[i]})
                 massage_dict.update({"val_loss": "%.6f" % val_loss, "val_score": "%.6f" % val_score})
 
-            if self.early_stop > 0:
-                best_score, count_stop = (val_score, 1) if best_score < val_score else (best_score, count_stop+1)
-
             pbar.set_postfix(massage_dict)
 
             # 不进行超参数搜索，则存储每个epoch的模型和日志
             if not self.param_search:
-                if not self.only_save_last_epoch or self.only_save_last_epoch and (
-                        epoch + 1 == self.epochs or self.early_stop == count_stop):
+                if not self.only_save_last_epoch or self.only_save_last_epoch and epoch + 1 == self.epochs:
                     # 存储模型
                     model_path = None
                     if self.save_model:
@@ -138,8 +132,6 @@ class PytorchModel(nn.Module, BaseEstimator):
                         "val_score_dict": val_score_dict,
                         "model_path": model_path,
                     })
-                if self.early_stop == count_stop:
-                    break
 
     # 每轮拟合
     def fit_epoch(self, X, y, train):

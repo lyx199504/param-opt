@@ -37,7 +37,6 @@ if __name__ == "__main__":
     # model.device = 'cuda'  # 使用GPU训练，默认使用CPU训练
     # model.save_model = True  # 常规训练时，可开启保存模型功能
     model.only_save_last_epoch = True  # 常规训练时，可开启仅保存最后一个epoch的功能
-    model.early_stop = 50  # 早停机制，连续50轮训练的分数没提升，则停止训练
     model.shuffle_every_epoch = True  # 将每一个epoch的数据进行打乱
     model.metrics_list = [f1_micro_score, f1_macro_score]  # 添加多个评价指标
     model.fit(X[train_point:], y[train_point:], X[:train_point], y[:train_point])
