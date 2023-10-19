@@ -36,6 +36,16 @@ def read_log(logFile):
         logList = log.readlines()
     return list(map(lambda x: eval(re.findall(r"(?<=INFO:).*$", x)[0]), logList))
 
+# 获取日志多行
+def get_lines_from_log(model_name, lines=None):
+    paramList = read_log(yaml_config['dir']['log_dir'] + "/" + model_name + ".log")
+    if type(lines) == int:
+        return paramList[lines]
+    elif type(lines) == list or type(lines) == tuple:
+        return paramList[lines[0]: lines[1]]
+    else:
+        return paramList
+
 # 按照模型关键字获取对应超参数
 def get_param_from_log(model_name, model_key):
     paramList = read_log(yaml_config['dir']['log_dir'] + "/" + model_name + ".log")

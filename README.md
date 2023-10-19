@@ -4,18 +4,18 @@ This project is a training tool for machine learning and deep learning. Based on
 
 ## 目录 Table of Contents
 
-- [项目结构 Project Structure](#project)
-  - [项目文件 Project Files](#project-file)
-  - [附加文件 Additional Files](#additional-file)
-- [使用方法 Getting Started](#get-start)
-  - [安装方法 Installation](#install)
-  - [训练步骤 Training Steps](#train-step)
-    - [常规训练 Regular Training](#train)
-    - [交叉验证训练 Cross-validation Training](#cv-train)
-    - [贝叶斯搜索训练 Bayesian Search Training](#bys-train)
-- [项目声明 Project Statement](#statement)
-- [友情链接 Related Links](#links)
-- [许可证 License](#license)
+- [项目结构 Project Structure](#项目结构-project-structure)
+  - [项目文件 Project Files](#项目文件-project-files)
+  - [附加文件 Additional Files](#附加文件-additional-files)
+- [使用方法 Getting Started](#使用方法-getting-started)
+  - [安装方法 Installation](#安装方法-installation)
+  - [训练步骤 Training Steps](#训练步骤-training-steps)
+    - [常规训练 Regular Training](#常规训练-regular-training)
+    - [交叉验证训练 Cross-validation Training](#交叉验证训练-cross-validation-training)
+    - [贝叶斯搜索训练 Bayesian Search Training](#贝叶斯搜索训练-bayesian-search-training)
+- [项目声明 Project Statement](#项目声明-project-statement)
+- [友情链接 Related Links](#友情链接-related-links)
+- [许可证 License](#许可证-license)
 
 <h2 id="project">项目结构 Project Structure</h2>
 
@@ -169,6 +169,7 @@ When you disclose the code based on this project, you must indicate the original
 
 1. [点击欺诈CAT-RFE集成学习框架](https://github.com/lyx199504/click-fraud-cat-rfe)
 2. [多尺度C-LSTM时间序列异常检测模型](https://github.com/lyx199504/mc-lstm-time-series)
+2. [基于频域信息的F-SE-LSTM时间序列异常检测方法](https://github.com/lyx199504/f-se-lstm-time-series)
 
 <h2 id="license">许可证 License</h2>
 

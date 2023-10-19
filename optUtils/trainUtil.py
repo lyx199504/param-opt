@@ -17,7 +17,7 @@ from optUtils.modelUtil import model_selection
 
 
 # 机器学习常规训练
-def ml_train(X, y, X_test, y_test, model_name, model_param={}, metrics_list=(), model=None):
+def ml_train(X, y, X_test, y_test, model_name, model_param={}, metrics_list=(), model=None, note=""):
     """
     :param X: 训练集的特征
     :param y: 训练集的标签
@@ -65,6 +65,7 @@ def ml_train(X, y, X_test, y_test, model_name, model_param={}, metrics_list=(), 
     make_dirs(log_dir)
     logger = logging_config(model_name, log_dir + '/%s.log' % model_name)
     log_message = {
+        "note": note,
         "cus_param": cus_param,
         "best_param_": model_param,
         "best_score_": test_score_list[0],
