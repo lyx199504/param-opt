@@ -149,7 +149,7 @@ During training, replace the cv_train function with the bayes_search_train funct
 The author and affiliation of this project:
 
     项目名称（Project Name）：param-opt
-    项目作者（Author）：Yixiang Lu
+    项目作者（Author）：Yixiang Lu, Shijie Xu, Chengxi Jiang, Xinquan Yang, Shihan Chen, Guanggang Geng, Dongjie Liu
     作者单位（Affiliation）：暨南大学网络空间安全学院（College of Cyber Security, Jinan University）
 
 若你使用本项目用于论文的实验，你可以引用本项目，latex版本引用如下：<br>
