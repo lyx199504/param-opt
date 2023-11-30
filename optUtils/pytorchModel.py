@@ -36,6 +36,7 @@ class PytorchModel(nn.Module, BaseEstimator):
         self.save_model = False  # 保存训练模型，默认关闭
         self.only_save_last_epoch = False  # 只保存最后一轮的结果，默认关闭
         self.shuffle_every_epoch = False  # 将每轮训练的数据进行打乱，默认关闭
+        self.watch_epoch = False  # 观察每个epoch中的训练，默认关闭
 
         self.learning_rate = learning_rate
         self.epochs = epochs
@@ -50,9 +51,9 @@ class PytorchModel(nn.Module, BaseEstimator):
 
     # numpy or list => tensor
     def to_tensor(self, data):
-        if type(data) == torch.Tensor or type(data) == list and type(data[0]) == torch.Tensor:
+        if isinstance(data, torch.Tensor) or isinstance(data, list) and (isinstance(data[0], torch.Tensor) or isinstance(data[0], str)):
             return data
-        if type(data) == list:
+        if isinstance(data, list):
             tensor_data = []
             for sub_data in data:
                 dataType = torch.float32 if 'float' in str(sub_data.dtype) else torch.int64
@@ -149,10 +150,16 @@ class PytorchModel(nn.Module, BaseEstimator):
         self.train() if train else self.eval()
 
         total_loss, y_hat = 0, []
-        indexList = range(0, len(X[0]) if type(X) == list else len(X), self.batch_size)
+        indexList = range(0, len(X[0]) if isinstance(X, list) and not isinstance(X[0], str) else len(X), self.batch_size)
+        if self.watch_epoch:
+            desc = "train:" + self.model_name if train else "val:" + self.model_name
+            indexList = tqdm(indexList, file=sys.stdout, desc=desc)
         for i in indexList:
-            if type(X) == list:
-                X_batch = [x[i: i + self.batch_size].to(self.device) for x in X]
+            if isinstance(X, list):
+                if isinstance(X[0], str):
+                    X_batch = X[i: i + self.batch_size]
+                else:
+                    X_batch = [x[i: i + self.batch_size].to(self.device) for x in X]
             else:
                 X_batch = X[i: i + self.batch_size].to(self.device)
             y_batch = None if y is None else y[i:i + self.batch_size].to(self.device)
@@ -161,7 +168,10 @@ class PytorchModel(nn.Module, BaseEstimator):
             loss = self.loss_fn(output, y_batch, X_batch)
             total_loss += loss.item()
 
-            y_hat_batch = output[0] if type(output) == tuple else output
+            if self.watch_epoch:
+                indexList.set_postfix({"loss": total_loss/(i / self.batch_size + 1)})
+
+            y_hat_batch = output[0] if isinstance(output, tuple) else output
             y_hat.append(y_hat_batch.cpu().detach().numpy())
 
             if train:
