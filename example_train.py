@@ -38,6 +38,7 @@ if __name__ == "__main__":
     # model.save_model = True  # 常规训练时，可开启保存模型功能
     model.only_save_last_epoch = True  # 常规训练时，可开启仅保存最后一个epoch的功能
     model.shuffle_every_epoch = True  # 将每一个epoch的数据进行打乱
+    # model.watch_epoch = True  # 观察每个epoch中的训练
     model.metrics_list = [f1_micro_score, f1_macro_score]  # 添加多个评价指标
     model.fit(X[train_point:], y[train_point:], X[:train_point], y[:train_point])
 

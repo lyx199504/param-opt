@@ -85,7 +85,7 @@ class PytorchModel(nn.Module, BaseEstimator):
                 shuffle_index_list = np.random.permutation(len(X[0]) if type(X) == list else len(X)).tolist()
                 X = [x[shuffle_index_list] for x in X] if type(X) == list else X[shuffle_index_list]
                 y = y[shuffle_index_list]
-            train_loss, train_score, train_score_list = self.fit_epoch(X, y, train=True)
+            train_loss, train_score, train_score_list = self.fit_epoch(X, y, train=True, epoch=epoch+1)
             train_score_dict = {self.metrics.__name__: train_score}
             for i, metrics in enumerate(self.metrics_list):
                 train_score_dict.update({metrics.__name__: train_score_list[i]})
@@ -94,7 +94,7 @@ class PytorchModel(nn.Module, BaseEstimator):
             # 有输入验证集，则计算val_loss和val_score等
             val_loss, val_score, val_score_dict = 0, 0, {}
             if not self.param_search and X_val is not None and y_val is not None:
-                val_loss, val_score, val_score_list = self.fit_epoch(X_val, y_val, train=False)
+                val_loss, val_score, val_score_list = self.fit_epoch(X_val, y_val, train=False, epoch=epoch+1)
                 val_score_dict = {self.metrics.__name__: val_score}
                 for i, metrics in enumerate(self.metrics_list):
                     val_score_dict.update({metrics.__name__: val_score_list[i]})
@@ -135,8 +135,8 @@ class PytorchModel(nn.Module, BaseEstimator):
                     })
 
     # 每轮拟合
-    def fit_epoch(self, X, y, train):
-        mean_loss, y_hat = self.fit_step(X, y, train)
+    def fit_epoch(self, X, y, train, epoch):
+        mean_loss, y_hat = self.fit_step(X, y, train, epoch)
 
         y_numpy = y.cpu().detach().numpy()
         y_hat_numpy = np.hstack(y_hat) if len(y_hat[0].shape) == 1 else np.vstack(y_hat)
@@ -146,13 +146,13 @@ class PytorchModel(nn.Module, BaseEstimator):
         return mean_loss, score, score_list
 
     # 拟合步骤
-    def fit_step(self, X, y=None, train=True):
+    def fit_step(self, X, y=None, train=True, epoch=0):
         self.train() if train else self.eval()
 
         total_loss, y_hat = 0, []
         indexList = range(0, len(X[0]) if isinstance(X, list) and not isinstance(X[0], str) else len(X), self.batch_size)
         if self.watch_epoch:
-            desc = "train:" + self.model_name if train else "val:" + self.model_name
+            desc = ("train" if train else "val") + "(%d):" % epoch + self.model_name
             indexList = tqdm(indexList, file=sys.stdout, desc=desc)
         for i in indexList:
             if isinstance(X, list):
@@ -358,8 +358,8 @@ class AutoEncoder(DeepLearningClassifier):
         return X_hat
 
     # 每轮拟合
-    def fit_epoch(self, X, y, train):
-        mean_loss, X_hat = self.fit_step(X, train=train)
+    def fit_epoch(self, X, y, train, epoch):
+        mean_loss, X_hat = self.fit_step(X, train=train, epoch=epoch)
         X_numpy, X_hat_numpy = X.cpu().detach().numpy(), np.vstack(X_hat)
         if train:
             # 用训练数据获取阈值范围
@@ -410,13 +410,13 @@ class SupervisedAutoEncoder(AutoEncoder):
         self.model_name = "sae"
 
     # 每轮拟合
-    def fit_epoch(self, X, y, train):
+    def fit_epoch(self, X, y, train, epoch):
         y_numpy = y.cpu().detach().numpy()
         normal_index = y_numpy == self.normal
         if train:
-            self.fit_step(X[normal_index], train=True)  # 只训练正常数据
+            self.fit_step(X[normal_index], train=True, epoch=epoch)  # 只训练正常数据
 
-        mean_loss, X_hat = self.fit_step(X, train=False)  # 不进行训练
+        mean_loss, X_hat = self.fit_step(X, train=False, epoch=epoch)  # 不进行训练
         X_numpy, X_hat_numpy = X.cpu().detach().numpy(), np.vstack(X_hat)
         if train:
             # 用正常数据获取正常阈值范围
