@@ -152,7 +152,7 @@ class PytorchModel(nn.Module, BaseEstimator):
         total_loss, y_hat = 0, []
         indexList = range(0, len(X[0]) if isinstance(X, list) and not isinstance(X[0], str) else len(X), self.batch_size)
         if self.watch_epoch:
-            desc = ("train" if train else "val") + "(%d):" % epoch + self.model_name
+            desc = ("train" if train else "val") + "(%d/%d):" % (epoch, self.epochs) + self.model_name
             indexList = tqdm(indexList, file=sys.stdout, desc=desc)
         for i in indexList:
             if isinstance(X, list):
@@ -165,7 +165,7 @@ class PytorchModel(nn.Module, BaseEstimator):
             y_batch = None if y is None else y[i:i + self.batch_size].to(self.device)
             output = self.forward(X_batch)
 
-            loss = self.loss_fn(output, y_batch, X_batch)
+            loss = self.loss_fn(output, y_batch, X_batch, train=train, batch_point=i)
             total_loss += loss.item()
 
             if self.watch_epoch:
@@ -189,9 +189,16 @@ class PytorchModel(nn.Module, BaseEstimator):
         self.to(self.device)
         X = self.to_tensor(X)
         y_hat = []
-        for i in range(0, len(X[0]) if type(X) == list else len(X), batch_size):
-            if type(X) == list:
-                X_batch = [x[i: i + batch_size].to(self.device) for x in X]
+        indexList = range(0, len(X[0]) if isinstance(X, list) and not isinstance(X[0], str) else len(X), batch_size)
+        if self.watch_epoch:
+            desc = "predict:" + self.model_name
+            indexList = tqdm(indexList, file=sys.stdout, desc=desc)
+        for i in indexList:
+            if isinstance(X, list):
+                if isinstance(X[0], str):
+                    X_batch = X[i:i + batch_size]
+                else:
+                    X_batch = [x[i:i + batch_size].to(self.device) for x in X]
             else:
                 X_batch = X[i:i + batch_size].to(self.device)
             output = self.forward(X_batch)
@@ -229,7 +236,7 @@ class DeepLearningClassifier(PytorchModel):
         self.relu = nn.ReLU()
 
     # 损失函数
-    def loss_fn(self, output, y_true, X_true):
+    def loss_fn(self, output, y_true, X_true, train, batch_point):
         y_hat = output[0] if type(output) == tuple else output
         return F.cross_entropy(y_hat, y_true)
 
@@ -295,7 +302,7 @@ class DeepLearningRegressor(PytorchModel):
         self.sigmoid = nn.Sigmoid()
 
     # 损失函数
-    def loss_fn(self, output, y_true, X_true):
+    def loss_fn(self, output, y_true, X_true, train, batch_point):
         y_hat = output[0] if type(output) == tuple else output
         return F.mse_loss(y_hat, y_true)
 
@@ -347,7 +354,7 @@ class AutoEncoder(DeepLearningClassifier):
         )
 
     # 损失函数
-    def loss_fn(self, output, y_true, X_true):
+    def loss_fn(self, output, y_true, X_true, train, batch_point):
         X_hat = output[0] if type(output) == tuple else output
         return F.mse_loss(X_hat, X_true)
 
@@ -451,7 +458,7 @@ class VariationalAutoEncoder(AutoEncoder):
         )
 
     # 损失函数
-    def loss_fn(self, output, y_true, X_true):
+    def loss_fn(self, output, y_true, X_true, train, batch_point):
         X_hat, mu, log_sigma = output
         BCE = F.binary_cross_entropy(X_hat, X_true, reduction='sum')
         D_KL = 0.5 * torch.sum(torch.exp(log_sigma) + torch.pow(mu, 2) - 1. - log_sigma)
