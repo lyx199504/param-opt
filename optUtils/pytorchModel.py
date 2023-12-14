@@ -51,7 +51,7 @@ class PytorchModel(nn.Module, BaseEstimator):
 
     # numpy or list => tensor
     def to_tensor(self, data):
-        if isinstance(data, torch.Tensor) or isinstance(data, list) and (isinstance(data[0], torch.Tensor) or isinstance(data[0], str)):
+        if isinstance(data, torch.Tensor) or isinstance(data, list) and not isinstance(data[0], np.ndarray):
             return data
         if isinstance(data, list):
             tensor_data = []
@@ -150,16 +150,16 @@ class PytorchModel(nn.Module, BaseEstimator):
         self.train() if train else self.eval()
 
         total_loss, y_hat = 0, []
-        indexList = range(0, len(X[0]) if isinstance(X, list) and not isinstance(X[0], str) else len(X), self.batch_size)
+        indexList = range(0, len(X[0]) if isinstance(X, list) and isinstance(X[0], torch.Tensor) else len(X), self.batch_size)
         if self.watch_epoch:
             desc = ("train" if train else "val") + "(%d/%d):" % (epoch, self.epochs) + self.model_name
             indexList = tqdm(indexList, file=sys.stdout, desc=desc)
         for i in indexList:
             if isinstance(X, list):
-                if isinstance(X[0], str):
-                    X_batch = X[i: i + self.batch_size]
-                else:
+                if isinstance(X[0], torch.Tensor):
                     X_batch = [x[i: i + self.batch_size].to(self.device) for x in X]
+                else:
+                    X_batch = X[i: i + self.batch_size]
             else:
                 X_batch = X[i: i + self.batch_size].to(self.device)
             y_batch = None if y is None else y[i:i + self.batch_size].to(self.device)
@@ -189,16 +189,16 @@ class PytorchModel(nn.Module, BaseEstimator):
         self.to(self.device)
         X = self.to_tensor(X)
         y_hat = []
-        indexList = range(0, len(X[0]) if isinstance(X, list) and not isinstance(X[0], str) else len(X), batch_size)
+        indexList = range(0, len(X[0]) if isinstance(X, list) and isinstance(X[0], torch.Tensor) else len(X), batch_size)
         if self.watch_epoch:
             desc = "predict:" + self.model_name
             indexList = tqdm(indexList, file=sys.stdout, desc=desc)
         for i in indexList:
             if isinstance(X, list):
-                if isinstance(X[0], str):
-                    X_batch = X[i:i + batch_size]
-                else:
+                if isinstance(X[0], torch.Tensor):
                     X_batch = [x[i:i + batch_size].to(self.device) for x in X]
+                else:
+                    X_batch = X[i:i + batch_size]
             else:
                 X_batch = X[i:i + batch_size].to(self.device)
             output = self.forward(X_batch)
